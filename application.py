@@ -12,6 +12,12 @@ import boto3
 from botocore.client import Config
 from flask_cors import CORS
 from flask_mysqldb import MySQL
+import razorpay
+import string
+import random
+import hmac
+import hashlib
+
 
 # S3 buket Credentials
 
@@ -19,6 +25,9 @@ ACCESS_KEY_ID = 'AKIAI6NB5RRTIW3YYDDQ'
 ACCESS_SECRET_KEY = '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'
 BUCKET_NAME = 'quizzes-for-kid'
 
+#Razor Pay Credential
+razorpay_client = razorpay.Client(auth=("rzp_test_2QHPO79ACxzRQl", "f9zvGhJn1MNBT070EUIh9e5o"))
+razpay_secret = 'f9zvGhJn1MNBT070EUIh9e5o'
 
 app = Flask(__name__)
 CORS(app)
@@ -31,6 +40,10 @@ app.config['MYSQL_DB'] = 'padhantu-classes'
 app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
 mysql = MySQL(app)
 
+def hmac_sha256(val):
+    h = hmac.new(razpay_secret.encode("ASCII"), val.encode("ASCII"), digestmod=hashlib.sha256).hexdigest()
+    print(h)
+    return h
 ## Upload Photo to S3 bucket
 def uploadFileToS3(fileName, file):
     s3 = boto3.resource(
@@ -138,8 +151,28 @@ def facebookLogin():
     else:
         return json.dumps("Something went wrong, Try Again")
 
-    
+def randomString(stringLength=8):
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(stringLength))
 
-if __name__ == "__main__":
+@app.route ('/createOrder',methods=['POST'])
+def create_app():
+   paye_id = randomString(10)
+   order_amount = 50000
+   order_currency = 'INR'
+   order_receipt = 'order_'+paye_id
+   razorId = razorpay_client.order.create(amount=order_amount, currency=order_currency, receipt=order_receipt, payment_capture='0')
+   return json.dumps(razorId["id"])
+
+@app.route('/verifyRazorpaySucces',methods=['POST'])
+def verify_payment():
+    request_signature = request.json["singnature"]
+    generated_signature = hmac_sha256(request.json["order_id"]  + "|" + request.json["payment_id"])
+    if(generated_signature == request_signature):
+        return json.dumps({"isSuccess":True})
+    else:
+        return json.dumps({"isSuccess":False})
+   
+ if __name__ == "__main__":
     app.run(debug = "True",host="0.0.0.0",port=5000)
     # app.run(debug = "True")
