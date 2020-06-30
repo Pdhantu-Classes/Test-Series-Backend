@@ -19,27 +19,37 @@ import hmac
 import hashlib
 
 
-# S3 buket Credentials
-
+# S3 buket Credential
 ACCESS_KEY_ID = 'AKIAI6NB5RRTIW3YYDDQ'
 ACCESS_SECRET_KEY = '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'
 BUCKET_NAME = 'quizzes-for-kid'
 
 # Razor Pay Credential
-razorpay_client = razorpay.Client(
-    auth=("rzp_test_2QHPO79ACxzRQl", "f9zvGhJn1MNBT070EUIh9e5o"))
-razpay_secret = 'f9zvGhJn1MNBT070EUIh9e5o'
+RAZORPAY_KEY = 'rzp_test_2QHPO79ACxzRQl'
+RAZORPAY_SECRET = 'f9zvGhJn1MNBT070EUIh9e5o'
+
+
+# Database Credential
+MYSQL_HOST = 'database-flask.c8ez6rfgj511.us-east-2.rds.amazonaws.com'
+MYSQL_USER = 'root'
+MYSQL_PASSWORD = 'root_123'
+MYSQL_DB = 'padhantu-classes'
+MYSQL_CURSORCLASS = 'DictCursor'
+
 
 app = Flask(__name__)
 CORS(app)
 
 # Database Connection
-app.config['MYSQL_HOST'] = 'database-flask.c8ez6rfgj511.us-east-2.rds.amazonaws.com'
-app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'root_123'
-app.config['MYSQL_DB'] = 'padhantu-classes'
-app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
+app.config['MYSQL_HOST'] = MYSQL_HOST
+app.config['MYSQL_USER'] = MYSQL_USER
+app.config['MYSQL_PASSWORD'] = MYSQL_PASSWORD
+app.config['MYSQL_DB'] = MYSQL_DB
+app.config['MYSQL_CURSORCLASS'] = MYSQL_CURSORCLASS
 mysql = MySQL(app)
+
+
+razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY, RAZORPAY_SECRET))
 
 
 def hmac_sha256(val):
@@ -178,7 +188,7 @@ def randomString(stringLength=8):
 @app.route('/createOrder', methods=['POST'])
 def create_app():
     paye_id = randomString(10)
-    order_amount = 50000
+    order_amount = 500 * 100
     order_currency = 'INR'
     order_receipt = 'order_'+paye_id
     razorId = razorpay_client.order.create(
@@ -188,9 +198,12 @@ def create_app():
 
 @app.route('/verifyRazorpaySucces', methods=['POST'])
 def verify_payment():
+    request_order_id = request.json["order_id"]
+    request_payment_id = request.json["payment_id"]
     request_signature = request.json["singnature"]
-    generated_signature = hmac_sha256(
-        request.json["order_id"] + "|" + request.json["payment_id"])
+
+    generated_signature = hmac_sha256(request_order_id+ "|" + request_payment_id)
+
     if(generated_signature == request_signature):
         return json.dumps({"isSuccess": True})
     else:
