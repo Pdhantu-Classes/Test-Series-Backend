@@ -108,7 +108,7 @@ def signUp():
             cursor.close()
     if flag == True:
         response = app.response_class(response=json.dumps(
-            {"message": "Already Exist", "isValid": False}), status=422, mimetype='application/json')
+            {"message": "Already Exist", "isValid": False}), status=200, mimetype='application/json')
         return response
     else:
         cursor.execute(
