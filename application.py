@@ -53,7 +53,7 @@ razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY, RAZORPAY_SECRET))
 
 
 def hmac_sha256(val):
-    h = hmac.new(razpay_secret.encode("ASCII"), val.encode(
+    h = hmac.new(razorpay_client.encode("ASCII"), val.encode(
         "ASCII"), digestmod=hashlib.sha256).hexdigest()
     print(h)
     return h
@@ -89,10 +89,11 @@ def generate_salt():
 # SignUp
 @app.route('/signup', methods=['POST'])
 def signUp():
-    name = request.headers.get('name')
-    email = request.headers.get('email')
-    password = request.headers.get('password')
-    mobile = request.headers.get('mobile')
+    firstname = request.json['firstname']
+    lastname = request.json['lastname']
+    email = request.json['email']
+    password = request.json['password']
+    mobile = request.json['mobile']
     created_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
     flag = False
     password_salt = generate_salt()
@@ -111,8 +112,8 @@ def signUp():
         return response
     else:
         cursor.execute(
-            """INSERT INTO users (username, email, mobile, password_hash, password_salt, sign_up_method, is_active, role, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """, (
-                name, email, mobile, password_hash, password_salt, "NORMAL", True, "USER", created_at)
+            """INSERT INTO users (firstname, lastname, email, mobile, password_hash, password_salt, sign_up_method, is_active, role, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """, (
+                firstname, lastname, email, mobile, password_hash, password_salt, "NORMAL", True, "USER", created_at)
         )
         mysql.connection.commit()
         cursor.close()
@@ -123,12 +124,12 @@ def signUp():
 # User Login
 @app.route('/login', methods=["POST"])
 def userLogin():
-    value = request.headers.get("value")
-    password = request.headers.get("password")
+    login_value = request.json["login_value"]
+    password = request.json["password"]
     isUserExist = False
     cursor = mysql.connection.cursor()
     cursor.execute(
-        """SELECT * FROM users where email=(%s) OR mobile=(%s)""", [value, value])
+        """SELECT * FROM users where email=(%s) OR mobile=(%s)""", [login_value, login_value])
     user_data = cursor.fetchone()
     response = {}
     if user_data:
@@ -136,7 +137,7 @@ def userLogin():
             isUserExist = True
 
         if isUserExist:
-            encoded_jwt = jwt.encode({"user_id": user_data["id"], "name": user_data["username"],
+            encoded_jwt = jwt.encode({"user_id": user_data["id"], "firstname": user_data["firstname"],"lastname":user_data["lastname"],"mobile":user_data["mobile"],
                                       "email": user_data["email"], "role": user_data["role"]}, 'secretkey', algorithm='HS256').decode("utf-8")
             response = app.response_class(response=json.dumps(
                 {"message": "Login Success", "isValid": True, "token": encoded_jwt}), status=200, mimetype='application/json')
