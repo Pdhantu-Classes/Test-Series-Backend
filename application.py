@@ -85,6 +85,10 @@ def generate_salt():
     salt = os.urandom(16)
     return salt.hex()
 
+def randomString(stringLength=8):
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(stringLength))
+
 
 # SignUp
 @app.route('/signup', methods=['POST'])
@@ -181,10 +185,6 @@ def facebookLogin():
         return json.dumps("Something went wrong, Try Again")
 
 
-def randomString(stringLength=8):
-    letters = string.ascii_lowercase
-    return ''.join(random.choice(letters) for i in range(stringLength))
-
 
 @app.route('/createOrder', methods=['POST'])
 def create_app():
@@ -210,6 +210,20 @@ def verify_payment():
     else:
         return json.dumps({"isSuccess": False})
 
+@app.route('/upload-image', methods=["POST"])
+def uploadImage():
+    isUpload = False
+    response = {}
+    upload_date = str(datetime.date.today())
+    file = request.files["file"]
+    seconds = str(time.time()).replace(".","")
+    newFile = "images/"+seconds + "-" + file.filename
+    uploadFileToS3(newFile, file)
+    image_url = 'https://quizzes-for-kid.s3.us-east-2.amazonaws.com/'+newFile
+    isUpload = True
+    response["isUpload"] = isUpload
+    response["imageUrl"] = image_url
+    return json.dumps(response)
 
 if __name__ == "__main__":
     app.run(debug="True", host="0.0.0.0", port=5000)
