@@ -53,7 +53,7 @@ razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY, RAZORPAY_SECRET))
 
 
 def hmac_sha256(val):
-    h = hmac.new(razorpay_client.encode("ASCII"), val.encode(
+    h = hmac.new(RAZORPAY_SECRET.encode("ASCII"), val.encode(
         "ASCII"), digestmod=hashlib.sha256).hexdigest()
     print(h)
     return h
@@ -189,7 +189,7 @@ def facebookLogin():
 @app.route('/createOrder', methods=['POST'])
 def create_app():
     paye_id = randomString(10)
-    order_amount = 500 * 100
+    order_amount = 240 * 100
     order_currency = 'INR'
     order_receipt = 'order_'+paye_id
     razorId = razorpay_client.order.create(
@@ -199,18 +199,23 @@ def create_app():
 
 @app.route('/verifyRazorpaySucces', methods=['POST'])
 def verify_payment():
+    user_id = request.json["user_id"]
+    test_name=request.json["test_name"]
     request_order_id = request.json["order_id"]
     request_payment_id = request.json["payment_id"]
-    request_signature = request.json["singnature"]
-
+    request_signature = request.json["signature"]
+    is_success = False
+    order_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
     generated_signature = hmac_sha256(request_order_id+ "|" + request_payment_id)
-
+    status='failure'
     if(generated_signature == request_signature):
-        return json.dumps({"isSuccess": True})
-    else:
-        return json.dumps({"isSuccess": False})
-
-
+        is_success=True
+        status='success'
+    cursor = mysql.connection.cursor()
+    cursor.execute("""INSERT into order_history(payment_id,order_id,user_id,price,order_at,status,test_name) values(%s,%s,%s,%s,%s,%s,%s)""", [request_payment_id,request_order_id,user_id ,'240',order_at,status,test_name])
+    mysql.connection.commit()
+    cursor.close()
+    return json.dumps({"isSuccess": is_success})
 
 @app.route('/upload-image', methods=["POST"])
 def uploadImage():
@@ -280,6 +285,18 @@ def pstUserDetails(user_id):
     mysql.connection.commit()
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"User Data Added Successfully"}),status= 200, mimetype='application/json')
+    return response
+\
+@app.route('/orderDetails/<int:user_id>', methods=["GET"])
+def getOrderDetails(user_id):
+    response_data = {}
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT * FROM order_history where user_id =(%s) AND status ="success" """, [user_id])
+    result = cursor.fetchall()
+   
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Order Details are","order_data":result}),status= 200, mimetype='application/json')
     return response
 
 if __name__ == "__main__":
