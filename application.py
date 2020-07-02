@@ -29,7 +29,7 @@ RAZORPAY_KEY = 'rzp_test_2QHPO79ACxzRQl'
 RAZORPAY_SECRET = 'f9zvGhJn1MNBT070EUIh9e5o'
 
 
-# Database Credential
+# Database Credential Development
 MYSQL_HOST = 'database-flask.c8ez6rfgj511.us-east-2.rds.amazonaws.com'
 MYSQL_USER = 'root'
 MYSQL_PASSWORD = 'root_123'
@@ -210,20 +210,77 @@ def verify_payment():
     else:
         return json.dumps({"isSuccess": False})
 
+
+
 @app.route('/upload-image', methods=["POST"])
 def uploadImage():
     isUpload = False
     response = {}
-    upload_date = str(datetime.date.today())
+    user_id = request.headers.get("user_id")
     file = request.files["file"]
     seconds = str(time.time()).replace(".","")
     newFile = "images/"+seconds + "-" + file.filename
     uploadFileToS3(newFile, file)
     image_url = 'https://quizzes-for-kid.s3.us-east-2.amazonaws.com/'+newFile
+    cursor = mysql.connection.cursor()
+    cursor.execute("""UPDATE users SET image_url =(%s) where id=(%s)""", [image_url,user_id])
+    mysql.connection.commit()
+    cursor.close()
     isUpload = True
     response["isUpload"] = isUpload
     response["imageUrl"] = image_url
     return json.dumps(response)
+
+
+
+@app.route('/isUserRegister/<int:user_id>', methods=["GET"])
+def isUserRegister(user_id):
+    cursor = mysql.connection.cursor()
+    isValid = False
+    cursor.execute("""SELECT * FROM users where id=(%s)""", [user_id])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    if result["whatsapp"] and result["graduation_year"] and result["preparing_for"]:
+        isValid = True
+    response =app.response_class(response=json.dumps({"message":"User details exist","isValid":isValid}),status= 200, mimetype='application/json')
+    return response
+
+
+
+@app.route('/userDetails/<int:user_id>', methods=["GET"])
+def getUserDetails(user_id):
+    response_data = {}
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT * FROM users where id=(%s)""", [user_id])
+    result = cursor.fetchone()
+    if result:
+        response_data["user_id"] = result["id"]
+        response_data["firstname"] = result["firstname"]
+        response_data["lastname"] = result["lastname"]
+        response_data["email"] = result["email"]
+        response_data["mobile"] = result["mobile"]        
+        response_data["image_url"] = result["image_url"]
+        response_data["role"] = result["role"]
+        response_data["whatsapp"] = result["whatsapp"]
+        response_data["graduation_year"] = result["graduation_year"]
+        response_data["preparing_for"] = result["preparing_for"]
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"User details exist","user_data":response_data}),status= 200, mimetype='application/json')
+    return response
+
+@app.route('/userDetails/<int:user_id>', methods=["PUT"])
+def pstUserDetails(user_id):
+    whatsapp = request.json["whatsapp"]
+    graduation_year = request.json["graduation_year"]
+    course = request.json["course"]
+    cursor = mysql.connection.cursor()
+    cursor.execute("""UPDATE users SET whatsapp =(%s), graduation_year=(%s), preparing_for=(%s) where id=(%s)""", [whatsapp,graduation_year,course,user_id])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"User Data Added Successfully"}),status= 200, mimetype='application/json')
+    return response
 
 if __name__ == "__main__":
     app.run(debug="True", host="0.0.0.0", port=5000)
