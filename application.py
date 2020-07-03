@@ -24,16 +24,21 @@ ACCESS_KEY_ID = 'AKIAI6NB5RRTIW3YYDDQ'
 ACCESS_SECRET_KEY = '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'
 BUCKET_NAME = 'quizzes-for-kid'
 
-# Razor Pay Credential
-RAZORPAY_KEY = 'rzp_test_2QHPO79ACxzRQl'
-RAZORPAY_SECRET = 'f9zvGhJn1MNBT070EUIh9e5o'
+# Test Razor Pay Credential
+# RAZORPAY_KEY = 'rzp_test_2QHPO79ACxzRQl'
+# RAZORPAY_SECRET = 'f9zvGhJn1MNBT070EUIh9e5o'
+
+# Live  Razor Pay Credential
+RAZORPAY_KEY = 'rzp_live_DjZ6EChEMzly9v'
+RAZORPAY_SECRET = 'CfgHyNIXwyyDF1KL9KbrnSW4'
 
 
 # Database Credential Development
-MYSQL_HOST = 'database-flask.c8ez6rfgj511.us-east-2.rds.amazonaws.com'
+MYSQL_HOST = 'database-pdhantu.cqa6f6gkxqbj.us-east-2.rds.amazonaws.com'
 MYSQL_USER = 'root'
 MYSQL_PASSWORD = 'root_123'
-MYSQL_DB = 'padhantu-classes'
+# MYSQL_DB = 'pdhantu-dev'
+MYSQL_DB = 'pdhantu-prod'
 MYSQL_CURSORCLASS = 'DictCursor'
 
 
@@ -190,7 +195,7 @@ def facebookLogin():
 @app.route('/createOrder', methods=['POST'])
 def create_app():
     paye_id = randomString(10)
-    order_amount = 240 * 100
+    order_amount = 1 * 100
     order_currency = 'INR'
     order_receipt = 'order_'+paye_id
     razorId = razorpay_client.order.create(
