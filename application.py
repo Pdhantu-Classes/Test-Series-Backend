@@ -317,6 +317,19 @@ def myTestSeries(user_id):
     response =app.response_class(response=json.dumps({"isValid":isValid}),status= 200, mimetype='application/json')
     return response
 
+@app.route('/query',methods=["POST"])
+def submitQuery():
+    name=request.json["name"]
+    message = request.json["message"]
+    email = request.json["email"]
+    created_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
+    cursor = mysql.connection.cursor()
+    cursor.execute("""insert into user_queries(name,email,message,created_at) values(%s,%s,%s,%s)""",[name,email,message,created_at])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Response Added Successfully"}),status= 200, mimetype='application/json')
+    return response
+
 if __name__ == "__main__":
     app.run(debug="True", host="0.0.0.0", port=5000)
     # app.run(debug = "True")
