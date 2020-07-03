@@ -199,7 +199,7 @@ def create_app():
     order_currency = 'INR'
     order_receipt = 'order_'+paye_id
     razorId = razorpay_client.order.create(
-        amount=order_amount, currency=order_currency, receipt=order_receipt, payment_capture='0')
+        amount=order_amount, currency=order_currency, receipt=order_receipt, payment_capture='1')
     return json.dumps(razorId["id"])
 
 
