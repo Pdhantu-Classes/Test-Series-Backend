@@ -149,10 +149,10 @@ def userLogin():
             return response
         else:
             response = app.response_class(response=json.dumps(
-                {"message": "Wrong Credential", "isValid": False}), status=403, mimetype='application/json')
+                {"message": "Wrong Credential", "isValid": False}), status=200, mimetype='application/json')
             return response
     else:
-        response =app.response_class(response=json.dumps({"message":"User do not exists, Please sign up"}),status= 404, mimetype='application/json')
+        response =app.response_class(response=json.dumps({"message":"User do not exists, Please sign up"}),status= 200, mimetype='application/json')
         return response
 
 
