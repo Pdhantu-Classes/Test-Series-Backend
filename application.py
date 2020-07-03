@@ -195,7 +195,7 @@ def facebookLogin():
 @app.route('/createOrder', methods=['POST'])
 def create_app():
     paye_id = randomString(10)
-    order_amount = 1 * 100
+    order_amount = 240 * 100
     order_currency = 'INR'
     order_receipt = 'order_'+paye_id
     razorId = razorpay_client.order.create(
