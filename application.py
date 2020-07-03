@@ -255,24 +255,12 @@ def isUserRegister(user_id):
 
 @app.route('/userDetails/<int:user_id>', methods=["GET"])
 def getUserDetails(user_id):
-    response_data = {}
     cursor = mysql.connection.cursor()
-    cursor.execute("""SELECT * FROM users where id=(%s)""", [user_id])
+    cursor.execute("""SELECT id,firstname,lastname,email,mobile,image_url,role, whatsapp,graduation_year,preparing_for  FROM users where id=(%s)""", [user_id])
     result = cursor.fetchone()
-    if result:
-        response_data["user_id"] = result["id"]
-        response_data["firstname"] = result["firstname"]
-        response_data["lastname"] = result["lastname"]
-        response_data["email"] = result["email"]
-        response_data["mobile"] = result["mobile"]        
-        response_data["image_url"] = result["image_url"]
-        response_data["role"] = result["role"]
-        response_data["whatsapp"] = result["whatsapp"]
-        response_data["graduation_year"] = result["graduation_year"]
-        response_data["preparing_for"] = result["preparing_for"]
     mysql.connection.commit()
     cursor.close()
-    response =app.response_class(response=json.dumps({"message":"User details exist","user_data":response_data}),status= 200, mimetype='application/json')
+    response =app.response_class(response=json.dumps({"message":"User details exist","user_data":result}),status= 200, mimetype='application/json')
     return response
 
 @app.route('/userDetails/<int:user_id>', methods=["PUT"])
@@ -286,17 +274,41 @@ def pstUserDetails(user_id):
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"User Data Added Successfully"}),status= 200, mimetype='application/json')
     return response
-\
+
 @app.route('/orderDetails/<int:user_id>', methods=["GET"])
 def getOrderDetails(user_id):
-    response_data = {}
     cursor = mysql.connection.cursor()
     cursor.execute("""SELECT * FROM order_history where user_id =(%s) AND status ="success" """, [user_id])
     result = cursor.fetchall()
-   
     mysql.connection.commit()
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Order Details are","order_data":result}),status= 200, mimetype='application/json')
+    return response
+
+@app.route('/isPackageBuy/<int:user_id>',methods=["GET"])
+def checkOrderDetails(user_id):
+    isValid = False
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT id FROM order_history where user_id =(%s) AND status ="success" limit 1""", [user_id])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    if result:
+        isValid = True
+    response =app.response_class(response=json.dumps({"isValid":isValid}),status= 200, mimetype='application/json')
+    return response
+
+@app.route('/myTestSeries/<int:user_id>',methods=["GET"])
+def myTestSeries(user_id):
+    isValid = False
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT id FROM order_history where user_id =(%s) AND status ="success" limit 1""", [user_id])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    if result:
+        isValid = True
+    response =app.response_class(response=json.dumps({"isValid":isValid}),status= 200, mimetype='application/json')
     return response
 
 if __name__ == "__main__":
