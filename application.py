@@ -330,6 +330,73 @@ def submitQuery():
     response =app.response_class(response=json.dumps({"message":"Response Added Successfully"}),status= 200, mimetype='application/json')
     return response
 
+
+##### Admin End #####
+
+# Admin Login
+@app.route('/adminLogin', methods=["POST"])
+def adminLogin():
+    username = request.json["username"]
+    password = request.json["password"]
+    isAdminExist = False
+    cursor = mysql.connection.cursor()
+    cursor.execute(
+        """SELECT * FROM admin where username=(%s) AND password=(%s)""", [username, password])
+    admin_data = cursor.fetchone()
+    if admin_data:
+        isAdminExist = True
+    if isAdminExist:
+        response = app.response_class(response=json.dumps({"message": "Login Success", "isValid": True, "admin": admin_data}), status=200, mimetype='application/json')
+        return response
+    else:
+        response = app.response_class(response=json.dumps({"message": "Wrong Credential", "isValid": False}), status=200, mimetype='application/json')
+        return response
+
+#All Users
+@app.route('/allUsers',methods=["GET"])
+def getAllUsers():
+    page = request.headers.get("page")
+    offset = 10*(int(page)-1)
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select id, firstname, lastname, email, mobile, image_url, created_at, whatsapp, graduation_year, preparing_for from users order by id desc limit 10 offset %s """,[offset])
+    result = cursor.fetchall()
+    cursor.execute(""" select count(*) as total from users""")
+    total = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Users data are", "user_data":result, "total": total['total']}),status= 200, mimetype='application/json')
+    return response
+
+#Paid Users
+@app.route('/paidUsers',methods=["GET"])
+def getPaidUsers():
+    page = request.headers.get("page")
+    offset = 10*(int(page)-1)
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select u.id, u.firstname, u.lastname, u.email, u.mobile, u.image_url, u.created_at, u.whatsapp, u.graduation_year, u.preparing_for, o.order_id, o.order_at, o.status from users u join order_history o on u.id = o.user_id order by u.id desc limit 10 offset %s""", [offset])
+    result = cursor.fetchall()
+    cursor.execute(""" select count(*) as total from users u join order_history o on u.id = o.user_id""")
+    total = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Users data are", "user_data":result, "total": total['total']}),status= 200, mimetype='application/json')
+    return response
+
+#Unpaid Users
+@app.route('/unpaidUsers',methods=["GET"])
+def getUnpaidUsers():
+    page = request.headers.get("page")
+    offset = 10*(int(page)-1)
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select users.id, firstname, lastname, email, mobile, image_url, created_at, whatsapp, graduation_year, preparing_for from users left outer join order_history on users.id = order_history.user_id where order_history.user_id is null order by users.id desc limit 10 offset %s""", [offset])
+    result = cursor.fetchall()
+    cursor.execute(""" select count(*) as total from users left outer join order_history on users.id = order_history.user_id where order_history.user_id is null""")
+    total = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Users data are", "user_data":result, "total": total['total']}),status= 200, mimetype='application/json')
+    return response
+
 if __name__ == "__main__":
     app.run(debug="True", host="0.0.0.0", port=5000)
     # app.run(debug = "True")
