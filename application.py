@@ -352,6 +352,21 @@ def adminLogin():
         response = app.response_class(response=json.dumps({"message": "Wrong Credential", "isValid": False}), status=200, mimetype='application/json')
         return response
 
+#Admin Dashboard
+@app.route('/adminDashboard',methods=["GET"])
+def adminDashboard():
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select count(*) as total from users""")
+    total = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from users u join order_history o on u.id = o.user_id""")
+    paid = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from users left outer join order_history on users.id = order_history.user_id where order_history.user_id is null""")
+    unpaid = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Users data are:", "total_user":total["total"], "paid_user": paid['total'], "unpaid_user": unpaid["total"]}),status= 200, mimetype='application/json')
+    return response
+
 #All Users
 @app.route('/allUsers',methods=["GET"])
 def getAllUsers():
@@ -366,6 +381,7 @@ def getAllUsers():
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Users data are", "user_data":result, "total": total['total']}),status= 200, mimetype='application/json')
     return response
+
 
 #Paid Users
 @app.route('/paidUsers',methods=["GET"])
