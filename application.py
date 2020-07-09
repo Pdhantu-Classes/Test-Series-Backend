@@ -160,6 +160,41 @@ def userLogin():
         response =app.response_class(response=json.dumps({"message":"User do not exists, Please sign up"}),status= 200, mimetype='application/json')
         return response
 
+# User Forget Password
+@app.route('/forgetPassword', methods=["POST"])
+def forgetPassword():
+    email = request.json["email"]
+    mobile = request.json["mobile"]
+    isUserExist = False
+    cursor = mysql.connection.cursor()
+    cursor.execute(
+        """SELECT * FROM users where email=(%s) AND mobile=(%s)""", [email, mobile])
+    user_data = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    print(user_data)
+    if user_data:
+        isUserExist = True
+    if isUserExist:
+        response = app.response_class(response=json.dumps({"message": "Please Enter New Password", "isValid": True, "user_id": user_data["id"]}), status=200, mimetype='application/json')
+        return response
+    else:
+        response = app.response_class(response=json.dumps({"message": "Please Enter Valid Details", "isValid": False}), status=200, mimetype='application/json')
+        return response
+
+# User Change Password
+@app.route('/changePassword', methods=["PUT"])
+def changePassword():
+    user_id = request.json["user_id"]
+    password = request.json["password"]
+    password_salt = generate_salt()
+    password_hash = md5_hash(password + password_salt)
+    cursor = mysql.connection.cursor()
+    cursor.execute("""UPDATE users SET password_hash = (%s), password_salt = (%s) where id = (%s)""", [password_hash,password_salt,user_id])
+    mysql.connection.commit()
+    cursor.close()
+    response = app.response_class(response=json.dumps({"message": "Password Change Successfully", "isValid": True}), status=200, mimetype='application/json')
+    return response
 
 # Facebook Login
 @app.route('/socialLogin', methods=["POST"])
@@ -415,6 +450,73 @@ def getUnpaidUsers():
     mysql.connection.commit()
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Users data are", "user_data":result, "total": total['total']}),status= 200, mimetype='application/json')
+    return response
+
+
+## Test Series End ##
+
+# Get Questions 
+@app.route('/getQuestions/<int:id>',methods=["GET"])
+def getMockQuestion(id):
+    questions_data = []
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select id, question_english, question_hindi, options_english, options_hindi from mock_questions where paper_id = (%s) order by id asc limit 100 """,[id])
+    results = cursor.fetchall()
+    for result in results:
+        temp_data = {}
+        temp_data["id"] = result["id"]
+
+        if result["question_english"]:
+            temp_data["question_english"] = result["question_english"]
+        else:
+            temp_data["question_english"] = ""
+
+        if result["options_english"]:
+            temp_data["options_english"] = result["options_english"].split(',')
+        else:
+            temp_data["options_english"] = ["","","","","",""]
+
+        if result["question_hindi"]:
+            temp_data["question_hindi"] = result["question_hindi"]
+        else:
+            temp_data["question_hindi"] = ""
+
+        if result["options_hindi"]:
+            temp_data["options_hindi"] = result["options_hindi"].split(',')
+        else:
+            temp_data["options_hindi"] = ["","","","","",""]
+
+        questions_data.append(temp_data)
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Questions data are", "questions":questions_data}),status= 200, mimetype='application/json')
+    return response
+
+# Post Response 
+@app.route('/postResponse',methods=["POST"])
+def postMockResponse():
+    i = 0
+    responses = request.json["responses"].split(',')
+    mock_paper_id = request.json["mock_paper_id"]
+    user_id = request.json["user_id"]
+    paper_time = request.json["paper_time"]
+    correct_count = 0
+    incorrect_count = 0
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select answer from mock_questions where paper_id = (%s) order by id asc limit 100 """,[mock_paper_id])
+    answers = cursor.fetchall()
+    for answer in answers:
+        if responses[i] != "":
+            if answer["answer"] == responses[i]:
+                correct_count += 1
+            else:
+                incorrect_count += 1
+        i += 1
+    print(correct_count, incorrect_count)
+    print(correct_count*3 - incorrect_count*(1/3))
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Questions data are"}),status= 200, mimetype='application/json')
     return response
 
 if __name__ == "__main__":
