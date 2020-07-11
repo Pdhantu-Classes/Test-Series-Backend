@@ -460,7 +460,9 @@ def getUnpaidUsers():
 def getMockQuestion(id):
     questions_data = []
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select id, question_english, question_hindi, options_english, options_hindi from mock_questions where paper_id = (%s) order by id asc limit 100 """,[id])
+    cursor.execute(""" select total_questions from mock_paper where id = (%s) """,[id])
+    questions = cursor.fetchone()
+    cursor.execute(""" select id, question_english, question_hindi, options_english, options_hindi from mock_questions where paper_id = (%s) order by id asc limit %s """,[id,questions["total_questions"]])
     results = cursor.fetchall()
     for result in results:
         temp_data = {}
@@ -496,28 +498,116 @@ def getMockQuestion(id):
 @app.route('/postResponse',methods=["POST"])
 def postMockResponse():
     i = 0
-    responses = request.json["responses"].split(',')
+    test_response = request.json["responses"]
+    responses = test_response.split(',')
     mock_paper_id = request.json["mock_paper_id"]
     user_id = request.json["user_id"]
-    paper_time = request.json["paper_time"]
-    correct_count = 0
-    incorrect_count = 0
+    paper_time_taken = request.json["paper_time_taken"]
+    submission_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
+    correct = 0
+    incorrect = 0
+    total_marks = 0
+    accuracy = 0
+    attempted = 0
+    not_attempted = 0
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select answer from mock_questions where paper_id = (%s) order by id asc limit 100 """,[mock_paper_id])
+    cursor.execute(""" select * from mock_paper where id = (%s) """,[mock_paper_id])
+    questions = cursor.fetchone()
+
+    total_questions = questions["total_questions"]
+
+    cursor.execute(""" select answer from mock_questions where paper_id = (%s) order by id asc limit %s """,[mock_paper_id,total_questions])
     answers = cursor.fetchall()
+
     for answer in answers:
         if responses[i] != "":
             if answer["answer"] == responses[i]:
-                correct_count += 1
+                correct += 1
             else:
-                incorrect_count += 1
+                incorrect += 1
         i += 1
-    print(correct_count, incorrect_count)
-    print(correct_count*3 - incorrect_count*(1/3))
+    total_marks = round(correct*2 - incorrect*(2/3), 2)
+    accuracy = int(round(correct/(correct+incorrect), 2)*100)
+    attempted = correct + incorrect
+    not_attempted = total_questions - attempted
+
+    print(total_marks, accuracy, attempted, not_attempted, total_questions, correct, incorrect, paper_time_taken, user_id, mock_paper_id, test_response,submission_at)
+    cursor.execute("""insert into mock_submission (user_id, mock_paper_id, responses, total_questions, correct, incorrect, attempted, not_attempted, total_marks, accuracy, paper_time_taken, submission_at) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",[user_id,mock_paper_id,test_response,total_questions,correct,incorrect,attempted,not_attempted,total_marks,accuracy,paper_time_taken,submission_at])
     mysql.connection.commit()
     cursor.close()
-    response =app.response_class(response=json.dumps({"message":"Questions data are"}),status= 200, mimetype='application/json')
+    response =app.response_class(response=json.dumps({"message":"Response Submitted"}),status= 200, mimetype='application/json')
     return response
+
+
+
+# Get Response 
+@app.route('/getResponses',methods=["GET"])
+def getMockResponse():
+    mock_paper_id = request.headers.get("mock_paper_id")
+    user_id = request.headers.get("user_id")
+    questions_data = []
+    print(mock_paper_id,user_id)
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from mock_paper where id = (%s) """,[mock_paper_id])
+    questions = cursor.fetchone()
+    total_questions = questions["total_questions"]
+
+    cursor.execute(""" select * from mock_questions where paper_id = (%s) order by id asc limit %s """,[mock_paper_id,total_questions])
+    questions = cursor.fetchall()
+    for result in questions:
+        temp_data = {}
+        temp_data["id"] = result["id"]
+
+        if result["question_english"]:
+            temp_data["question_english"] = result["question_english"]
+        else:
+            temp_data["question_english"] = ""
+
+        if result["options_english"]:
+            temp_data["options_english"] = result["options_english"].split(',')
+        else:
+            temp_data["options_english"] = ["","","","","",""]
+
+        if result["question_hindi"]:
+            temp_data["question_hindi"] = result["question_hindi"]
+        else:
+            temp_data["question_hindi"] = ""
+
+        if result["options_hindi"]:
+            temp_data["options_hindi"] = result["options_hindi"].split(',')
+        else:
+            temp_data["options_hindi"] = ["","","","","",""]
+
+        temp_data["answer"] = result["answer"]
+        questions_data.append(temp_data)
+
+    cursor.execute(""" select * from mock_submission s join mock_paper p on s.mock_paper_id = p.id where s.mock_paper_id = (%s) and s.user_id =(%s) """,[mock_paper_id,user_id])
+    responses = cursor.fetchone()
+
+    temp_response = {}
+    if responses:
+        temp_response["id"] = responses["id"]
+        temp_response["user_id"] = responses["user_id"]
+        temp_response["mock_paper_id"] = responses["mock_paper_id"]
+        temp_response["responses"] = responses["responses"].split(',')
+        temp_response["total_questions"] = responses["total_questions"]
+        temp_response["correct"] = responses["correct"]
+        temp_response["incorrect"] = responses["incorrect"]
+        temp_response["attempted"] = responses["attempted"]
+        temp_response["not_attempted"] = responses["not_attempted"]
+        temp_response["total_marks"] = responses["total_marks"]
+        temp_response["accuracy"] = responses["accuracy"]
+        temp_response["paper_time_taken"] = responses["paper_time_taken"]
+        temp_response["paper_id"] = responses["p.id"]
+        temp_response["mock_paper_name"] = responses["mock_paper_name"]
+        temp_response["mock_description"] = responses["mock_description"]
+
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Responses Available", "questions":questions_data,"user_response":temp_response,"isValid":True}),status= 200, mimetype='application/json')
+    return response
+
+
 
 if __name__ == "__main__":
     app.run(debug="True", host="0.0.0.0", port=5000)
