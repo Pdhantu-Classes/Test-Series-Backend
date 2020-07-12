@@ -37,8 +37,8 @@ RAZORPAY_SECRET = 'CfgHyNIXwyyDF1KL9KbrnSW4'
 MYSQL_HOST = 'database-pdhantu.cqa6f6gkxqbj.us-east-2.rds.amazonaws.com'
 MYSQL_USER = 'root'
 MYSQL_PASSWORD = 'root_123'
-# MYSQL_DB = 'pdhantu-dev'
-MYSQL_DB = 'pdhantu-prod'
+MYSQL_DB = 'pdhantu-dev'
+# MYSQL_DB = 'pdhantu-prod'
 MYSQL_CURSORCLASS = 'DictCursor'
 
 
@@ -455,6 +455,74 @@ def getUnpaidUsers():
 
 ## Test Series End ##
 
+# Get All Test Mock Paper with Status
+
+@app.route('/getAllMockPaper',methods=["GET"])
+def getAllMockPaper():
+    user_id = request.headers.get("user_id")
+    mock_paper_data = []
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from mock_paper""")
+    mock_papers = cursor.fetchall()
+    cursor.execute(""" select * from mock_submission where user_id = (%s)""",[user_id])
+    user_submissions = cursor.fetchall()
+    for mock_p in mock_papers:
+        temp_dict = {}
+        is_attepmted = 0
+        for user_s in user_submissions:
+            if user_s["mock_paper_id"] == mock_p["id"]:
+                is_attepmted = 1
+                break
+        temp_dict["id"] = mock_p["id"]
+        temp_dict["mock_paper_name"] = mock_p["mock_paper_name"]
+        temp_dict["mock_description"] = mock_p["mock_description"]
+        temp_dict["paper_date"] = mock_p["paper_date"]
+        temp_dict["is_active"] = mock_p["is_active"]
+        temp_dict["is_finished"] = mock_p["is_finished"]
+        temp_dict["is_result_released"] = mock_p["is_result_released"]
+        temp_dict["is_attempted"] = is_attepmted
+        mock_paper_data.append(temp_dict)
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Mock Papers are", "mock_paper":mock_paper_data}),status= 200, mimetype='application/json')
+    return response
+
+
+# Get All Test Mock Paper with Status
+
+@app.route('/getMockPaperDetails',methods=["GET"])
+def getMockPaperDetails():
+    mock_paper_id = request.json["mock_paper_id"]
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from mock_paper where id =(%s)""",[mock_paper_id])
+    mock_paper = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Mock Paper Details", "mock_paper":mock_paper}),status= 200, mimetype='application/json')
+    return response
+
+
+# Get Only Live For Home
+
+@app.route('/getOnlyLiveTest',methods=["GET"])
+def getOnlyLiveTest():
+    user_id = request.headers.get("user_id")
+    is_attempted = 0
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from mock_paper where is_active = 0 and is_finished = 0""")
+    mock_paper = cursor.fetchone()
+    cursor.execute(""" select * from mock_submission where user_id = (%s) and mock_paper_id = (%s)""",[user_id,mock_paper["id"]])
+    user_submissions = cursor.fetchone()
+    if user_submissions:
+        is_attempted = 1
+    mock_paper["is_attempted"] =is_attempted
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Live Paper Details", "live_mock_paper":mock_paper}),status= 200, mimetype='application/json')
+    return response
+
+
+
 # Get Questions 
 @app.route('/getQuestions/<int:id>',methods=["GET"])
 def getMockQuestion(id):
@@ -476,7 +544,7 @@ def getMockQuestion(id):
         if result["options_english"]:
             temp_data["options_english"] = result["options_english"].split(',')
         else:
-            temp_data["options_english"] = ["","","","","",""]
+            temp_data["options_english"] = ["","","","",""]
 
         if result["question_hindi"]:
             temp_data["question_hindi"] = result["question_hindi"]
@@ -486,7 +554,7 @@ def getMockQuestion(id):
         if result["options_hindi"]:
             temp_data["options_hindi"] = result["options_hindi"].split(',')
         else:
-            temp_data["options_hindi"] = ["","","","","",""]
+            temp_data["options_hindi"] = ["","","","",""]
 
         questions_data.append(temp_data)
     mysql.connection.commit()
