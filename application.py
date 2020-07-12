@@ -634,7 +634,7 @@ def getMockResponse():
         if result["options_english"]:
             temp_data["options_english"] = result["options_english"].split(',')
         else:
-            temp_data["options_english"] = ["","","","","",""]
+            temp_data["options_english"] = ["","","","",""]
 
         if result["question_hindi"]:
             temp_data["question_hindi"] = result["question_hindi"]
@@ -644,7 +644,7 @@ def getMockResponse():
         if result["options_hindi"]:
             temp_data["options_hindi"] = result["options_hindi"].split(',')
         else:
-            temp_data["options_hindi"] = ["","","","","",""]
+            temp_data["options_hindi"] = ["","","","",""]
 
         temp_data["answer"] = result["answer"]
         questions_data.append(temp_data)
