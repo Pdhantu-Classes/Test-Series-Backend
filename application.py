@@ -686,6 +686,17 @@ def getRankMockPaper():
     response =app.response_class(response=json.dumps({"message":"Responses Available", "questions":ranks, "isValid":True}),status= 200, mimetype='application/json')
     return response
 
+    
+@app.route('/getMockPaperTime',methods=["GET"])
+def getMockPaperTime():
+    mock_paper_id = request.headers.get("mock_paper_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select paper_time from mock_paper where id = (%s) """,[mock_paper_id])
+    paper_time = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Time Available", "paper_time":paper_time["paper_time"], "isValid":True}),status= 200, mimetype='application/json')
+    return response
 
 
 if __name__ == "__main__":
