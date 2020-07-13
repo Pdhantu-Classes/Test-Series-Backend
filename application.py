@@ -366,6 +366,13 @@ def submitQuery():
     return response
 
 
+
+
+
+
+
+
+
 ##### Admin End #####
 
 # Admin Login
@@ -451,6 +458,74 @@ def getUnpaidUsers():
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Users data are", "user_data":result, "total": total['total']}),status= 200, mimetype='application/json')
     return response
+
+
+#Mock Go Live
+
+@app.route('/goMockLive',methods=["POST"])
+def goMockLive():
+    auth_password = request.json["auth_password"]
+    mock_paper_id = request.json["mock_paper_id"]
+    is_valid = False
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from admin""")
+    admin_data = cursor.fetchone()
+    print(admin_data)
+    if str(admin_data["auth_password"]) == auth_password:
+        is_valid = True
+    if is_valid:
+        cursor.execute(""" UPDATE mock_paper SET is_active = 1 where id=(%s)""",[mock_paper_id])
+        mysql.connection.commit()
+        response =app.response_class(response=json.dumps({"message":"Paper Live Successfully"}),status= 200, mimetype='application/json')
+    else:
+        response =app.response_class(response=json.dumps({"message":"Something Went Wrong"}),status= 200, mimetype='application/json')
+    cursor.close()
+    return response
+
+@app.route('/finishPaper',methods=["POST"])
+def finishPaper():
+    auth_password = request.json["auth_password"]
+    mock_paper_id = request.json["mock_paper_id"]
+    is_valid = False
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from admin""")
+    admin_data = cursor.fetchone()
+    if admin_data["auth_password"] == auth_password:
+        is_valid = True
+    if is_valid:
+        cursor.execute(""" UPDATE mock_paper SET is_active = 0 , is_finished = 1 where id=(%s)""",[mock_paper_id])
+        mysql.connection.commit()
+        response =app.response_class(response=json.dumps({"message":"Paper Finished Successfully"}),status= 200, mimetype='application/json')
+    else:
+        response =app.response_class(response=json.dumps({"message":"Something Went Wrong"}),status= 200, mimetype='application/json')
+    cursor.close()
+    return response
+
+@app.route('/releaseResult',methods=["POST"])
+def releaseResult():
+    auth_password = request.json["auth_password"]
+    mock_paper_id = request.json["mock_paper_id"]
+    is_valid = False
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from admin""")
+    admin_data = cursor.fetchone()
+    if admin_data["auth_password"] == auth_password:
+        is_valid = True
+    if is_valid:
+        cursor.execute(""" UPDATE mock_paper SET is_result_released = 1 where id=(%s)""",[mock_paper_id])
+        mysql.connection.commit()
+        response =app.response_class(response=json.dumps({"message":"Result Released Successfully"}),status= 200, mimetype='application/json')
+    else:
+        response =app.response_class(response=json.dumps({"message":"Something Went Wrong"}),status= 200, mimetype='application/json')
+    cursor.close()
+    return response
+
+
+
+
+
+
+
 
 
 ## Test Series End ##
