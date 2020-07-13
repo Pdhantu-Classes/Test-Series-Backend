@@ -595,7 +595,10 @@ def postMockResponse():
                 incorrect += 1
         i += 1
     total_marks = round(correct*2 - incorrect*(2/3), 2)
-    accuracy = int(round(correct/(correct+incorrect), 2)*100)
+    if (correct+incorrect) == 0:
+        accuracy = 0
+    else:
+        accuracy = int(round(correct/(correct+incorrect), 2)*100)
     attempted = correct + incorrect
     not_attempted = total_questions - attempted
 
