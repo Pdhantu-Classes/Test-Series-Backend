@@ -37,8 +37,8 @@ RAZORPAY_SECRET = 'CfgHyNIXwyyDF1KL9KbrnSW4'
 MYSQL_HOST = 'database-pdhantu.cqa6f6gkxqbj.us-east-2.rds.amazonaws.com'
 MYSQL_USER = 'root'
 MYSQL_PASSWORD = 'root_123'
-# MYSQL_DB = 'pdhantu-dev'
-MYSQL_DB = 'pdhantu-prod'
+MYSQL_DB = 'pdhantu-dev'
+# MYSQL_DB = 'pdhantu-prod'
 MYSQL_CURSORCLASS = 'DictCursor'
 
 
@@ -592,7 +592,7 @@ def getMockQuestion(id):
             temp_data["question_english"] = ""
 
         if result["options_english"]:
-            temp_data["options_english"] = result["options_english"].split(',')
+            temp_data["options_english"] = result["options_english"].split('$')
         else:
             temp_data["options_english"] = ["","","","",""]
 
@@ -602,7 +602,7 @@ def getMockQuestion(id):
             temp_data["question_hindi"] = ""
 
         if result["options_hindi"]:
-            temp_data["options_hindi"] = result["options_hindi"].split(',')
+            temp_data["options_hindi"] = result["options_hindi"].split('$')
         else:
             temp_data["options_hindi"] = ["","","","",""]
 
@@ -639,7 +639,8 @@ def postMockResponse():
 
     for answer in answers:
         if responses[i] != "":
-            if answer["answer"] == responses[i]:
+            print(responses[i], answer)
+            if answer["answer"].lower() == responses[i]:
                 correct += 1
             else:
                 incorrect += 1
@@ -685,7 +686,7 @@ def getMockResponse():
             temp_data["question_english"] = ""
 
         if result["options_english"]:
-            temp_data["options_english"] = result["options_english"].split(',')
+            temp_data["options_english"] = result["options_english"].split('$')
         else:
             temp_data["options_english"] = ["","","","",""]
 
@@ -695,7 +696,7 @@ def getMockResponse():
             temp_data["question_hindi"] = ""
 
         if result["options_hindi"]:
-            temp_data["options_hindi"] = result["options_hindi"].split(',')
+            temp_data["options_hindi"] = result["options_hindi"].split('$')
         else:
             temp_data["options_hindi"] = ["","","","",""]
 
