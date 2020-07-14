@@ -542,7 +542,7 @@ def getAllMockPaper():
 
 @app.route('/getMockPaperDetails',methods=["GET"])
 def getMockPaperDetails():
-    mock_paper_id = request.json["mock_paper_id"]
+    mock_paper_id = request.headers.get("mock_paper_id")
     cursor = mysql.connection.cursor()
     cursor.execute(""" select * from mock_paper where id =(%s)""",[mock_paper_id])
     mock_paper = cursor.fetchone()
