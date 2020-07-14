@@ -463,7 +463,7 @@ def getUnpaidUsers():
 @app.route('/getAllMockAdmin',methods=["GET"])
 def getAllMockAdmin():
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select * from mock_paper """)
+    cursor.execute(""" select * from mock_paper limit 18 """)
     result = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
@@ -512,7 +512,7 @@ def getAllMockPaper():
     user_id = request.headers.get("user_id")
     mock_paper_data = []
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select * from mock_paper""")
+    cursor.execute(""" select * from mock_paper limit 18""")
     mock_papers = cursor.fetchall()
     cursor.execute(""" select * from mock_submission where user_id = (%s)""",[user_id])
     user_submissions = cursor.fetchall()
@@ -781,6 +781,22 @@ def checkPaidUser():
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Check Paid User", "isValid":isValid}),status= 200, mimetype='application/json')
     return response   
+
+
+@app.route('/demoTest',methods=["GET"])
+def demoTest():
+    user_id = request.headers.get("user_id")
+    isValid = False
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from mock_submission where user_id = (%s) and mock_paper_id = 19""", [user_id])
+    demoData = cursor.fetchone()
+    if demoData:
+        isValid = True
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Demo data are", "isValid":isValid}),status= 200, mimetype='application/json')
+    return response   
+
 
 
 if __name__ == "__main__":
