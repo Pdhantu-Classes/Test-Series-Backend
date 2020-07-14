@@ -37,8 +37,8 @@ RAZORPAY_SECRET = 'CfgHyNIXwyyDF1KL9KbrnSW4'
 MYSQL_HOST = 'database-pdhantu.cqa6f6gkxqbj.us-east-2.rds.amazonaws.com'
 MYSQL_USER = 'root'
 MYSQL_PASSWORD = 'root_123'
-MYSQL_DB = 'pdhantu-dev'
-# MYSQL_DB = 'pdhantu-prod'
+# MYSQL_DB = 'pdhantu-dev'
+MYSQL_DB = 'pdhantu-prod'
 MYSQL_CURSORCLASS = 'DictCursor'
 
 
@@ -514,7 +514,7 @@ def getAllMockPaper():
     cursor = mysql.connection.cursor()
     cursor.execute(""" select * from mock_paper limit 18""")
     mock_papers = cursor.fetchall()
-    cursor.execute(""" select * from mock_submission where user_id = (%s)""",[user_id])
+    cursor.execute(""" select * from mock_submissions where user_id = (%s)""",[user_id])
     user_submissions = cursor.fetchall()
     for mock_p in mock_papers:
         temp_dict = {}
@@ -561,7 +561,7 @@ def getOnlyLiveTest():
     cursor = mysql.connection.cursor()
     cursor.execute(""" select * from mock_paper where is_active = 0 and is_finished = 0""")
     mock_paper = cursor.fetchone()
-    cursor.execute(""" select * from mock_submission where user_id = (%s) and mock_paper_id = (%s)""",[user_id,mock_paper["id"]])
+    cursor.execute(""" select * from mock_submissions where user_id = (%s) and mock_paper_id = (%s)""",[user_id,mock_paper["id"]])
     user_submissions = cursor.fetchone()
     if user_submissions:
         is_attempted = 1
@@ -653,7 +653,7 @@ def postMockResponse():
     not_attempted = total_questions - attempted
 
     print(total_marks, accuracy, attempted, not_attempted, total_questions, correct, incorrect, paper_time_taken, user_id, mock_paper_id, test_response,submission_at)
-    cursor.execute("""insert into mock_submission (user_id, mock_paper_id, responses, total_questions, correct, incorrect, attempted, not_attempted, total_marks, accuracy, paper_time_taken, submission_at) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",[user_id,mock_paper_id,test_response,total_questions,correct,incorrect,attempted,not_attempted,total_marks,accuracy,paper_time_taken,submission_at])
+    cursor.execute("""insert into mock_submissions (user_id, mock_paper_id, responses, total_questions, correct, incorrect, attempted, not_attempted, total_marks, accuracy, paper_time_taken, submission_at) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",[user_id,mock_paper_id,test_response,total_questions,correct,incorrect,attempted,not_attempted,total_marks,accuracy,paper_time_taken,submission_at])
     mysql.connection.commit()
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Response Submitted"}),status= 200, mimetype='application/json')
@@ -702,7 +702,7 @@ def getMockResponse():
         temp_data["answer"] = result["answer"]
         questions_data.append(temp_data)
 
-    cursor.execute(""" select * from mock_submission s join mock_paper p on s.mock_paper_id = p.id where s.mock_paper_id = (%s) and s.user_id =(%s) """,[mock_paper_id,user_id])
+    cursor.execute(""" select * from mock_submissions s join mock_paper p on s.mock_paper_id = p.id where s.mock_paper_id = (%s) and s.user_id =(%s) """,[mock_paper_id,user_id])
     responses = cursor.fetchone()
 
     temp_response = {}
@@ -732,7 +732,7 @@ def getMockResponse():
 def getRankMockPaper():
     mock_paper_id = request.headers.get("mock_paper_id")
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select us.id as user_id, us.firstname user_firstname, us.lastname as user_lastname,us.email as user_email, ms.total_marks as marks, ms.accuracy as accuracy, ms.paper_time_taken as paper_time from mock_submission ms join users us on ms.user_id = us.id where ms.mock_paper_id = (%s) order by ms.total_marks desc, ms.accuracy desc, ms.paper_time_taken asc""",[mock_paper_id])
+    cursor.execute(""" select us.id as user_id, us.firstname user_firstname, us.lastname as user_lastname,us.email as user_email, ms.total_marks as marks, ms.accuracy as accuracy, ms.paper_time_taken as paper_time from mock_submissions ms join users us on ms.user_id = us.id where ms.mock_paper_id = (%s) order by ms.total_marks desc, ms.accuracy desc, ms.paper_time_taken asc""",[mock_paper_id])
     ranks = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
@@ -758,7 +758,7 @@ def checkTestAttempted():
     print(user_id,mock_paper_id)
     isValid = True
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select id from mock_submission where mock_paper_id = (%s) and user_id = (%s)""", [mock_paper_id,user_id])
+    cursor.execute(""" select id from mock_submissions where mock_paper_id = (%s) and user_id = (%s)""", [mock_paper_id,user_id])
     is_submission = cursor.fetchone()
     print(is_submission)
     if is_submission:
@@ -788,7 +788,7 @@ def demoTest():
     user_id = request.headers.get("user_id")
     isValid = False
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select * from mock_submission where user_id = (%s) and mock_paper_id = 19""", [user_id])
+    cursor.execute(""" select * from mock_submissions where user_id = (%s) and mock_paper_id = 19""", [user_id])
     demoData = cursor.fetchone()
     if demoData:
         isValid = True
