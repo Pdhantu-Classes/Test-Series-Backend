@@ -503,12 +503,6 @@ def releaseResult():
 
 
 
-
-
-
-
-
-
 ## Test Series End ##
 
 # Get All Test Mock Paper with Status
@@ -760,9 +754,10 @@ def getMockPaperTime():
 @app.route('/checkTestAttempted',methods=["GET"])
 def checkTestAttempted():
     user_id = request.headers.get("user_id")
+    mock_paper_id = request.headers.get("mock_paper_id")
     isValid = True
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select id from mock_submission where mock_paper_id = (select id from mock_paper where is_active = 1) and user_id = (%s)""", [user_id])
+    cursor.execute(""" select id from mock_submission where mock_paper_id = (%s) and user_id = (%s)""", [user_id, mock_paper_id])
     is_submission = cursor.fetchone()
     if is_submission:
         isValid = False
