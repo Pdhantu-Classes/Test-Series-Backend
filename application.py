@@ -776,6 +776,34 @@ def getMockPaperTime():
     response =app.response_class(response=json.dumps({"message":"Time Available", "paper_time":paper_time["paper_time"], "isValid":True}),status= 200, mimetype='application/json')
     return response
 
+@app.route('/checkTestAttempted',methods=["GET"])
+def checkTestAttempted():
+    user_id = request.headers.get("user_id")
+    isValid = True
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select id from mock_submission where mock_paper_id = (select id from mock_paper where is_active = 1) and user_id = (%s)""", [user_id])
+    is_submission = cursor.fetchone()
+    if is_submission:
+        isValid = False
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Check Mock Submitted", "isValid":isValid}),status= 200, mimetype='application/json')
+    return response   
+
+@app.route('/checkPaidUserOrNot',methods=["GET"])
+def checkPaidUser():
+    user_id = request.headers.get("user_id")
+    isValid = False
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select id from order_history where user_id = (%s)""", [user_id])
+    check = cursor.fetchone()
+    if check:
+        isValid = True
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Check Paid User", "isValid":isValid}),status= 200, mimetype='application/json')
+    return response   
+
 
 if __name__ == "__main__":
     app.run(debug="True", host="0.0.0.0", port=5000)
