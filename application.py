@@ -644,7 +644,7 @@ def postMockResponse():
             else:
                 incorrect += 1
         i += 1
-    total_marks = round(correct*2 - incorrect*(1/3), 2)
+    total_marks = round(correct*2 - incorrect*(2/3), 2)
     if (correct+incorrect) == 0:
         accuracy = 0
     else:
@@ -755,10 +755,12 @@ def getMockPaperTime():
 def checkTestAttempted():
     user_id = request.headers.get("user_id")
     mock_paper_id = request.headers.get("mock_paper_id")
+    print(user_id,mock_paper_id)
     isValid = True
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select id from mock_submission where mock_paper_id = (%s) and user_id = (%s)""", [user_id, mock_paper_id])
+    cursor.execute(""" select id from mock_submission where mock_paper_id = (%s) and user_id = (%s)""", [mock_paper_id,user_id])
     is_submission = cursor.fetchone()
+    print(is_submission)
     if is_submission:
         isValid = False
     mysql.connection.commit()
