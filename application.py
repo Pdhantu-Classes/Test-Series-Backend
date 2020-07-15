@@ -20,9 +20,9 @@ import hashlib
 
 
 # S3 buket Credential
-ACCESS_KEY_ID = 'AKIAI6NB5RRTIW3YYDDQ'
-ACCESS_SECRET_KEY = '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'
-BUCKET_NAME = 'quizzes-for-kid'
+ACCESS_KEY_ID = 'AKIAIVI7KFEM5MDNWJAQ'
+ACCESS_SECRET_KEY = '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'
+BUCKET_NAME = 'pdhantu-classes'
 
 # Test Razor Pay Credential
 # RAZORPAY_KEY = 'rzp_test_2QHPO79ACxzRQl'
@@ -37,8 +37,8 @@ RAZORPAY_SECRET = 'CfgHyNIXwyyDF1KL9KbrnSW4'
 MYSQL_HOST = 'database-pdhantu.cqa6f6gkxqbj.us-east-2.rds.amazonaws.com'
 MYSQL_USER = 'root'
 MYSQL_PASSWORD = 'root_123'
-MYSQL_DB = 'pdhantu-dev'
-# MYSQL_DB = 'pdhantu-prod'
+# MYSQL_DB = 'pdhantu-dev'
+MYSQL_DB = 'pdhantu-prod'
 MYSQL_CURSORCLASS = 'DictCursor'
 
 
@@ -265,13 +265,28 @@ def uploadImage():
     user_id = request.headers.get("user_id")
     file = request.files["file"]
     seconds = str(time.time()).replace(".","")
-    newFile = "images/"+seconds + "-" + file.filename
+    newFile = "user-images/"+seconds + "-" + file.filename
     uploadFileToS3(newFile, file)
-    image_url = 'https://quizzes-for-kid.s3.us-east-2.amazonaws.com/'+newFile
+    image_url = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
     cursor = mysql.connection.cursor()
     cursor.execute("""UPDATE users SET image_url =(%s) where id=(%s)""", [image_url,user_id])
     mysql.connection.commit()
     cursor.close()
+    isUpload = True
+    response["isUpload"] = isUpload
+    response["imageUrl"] = image_url
+    return json.dumps(response)
+
+
+@app.route('/upload-question-image', methods=["POST"])
+def uploadQuestionImage():
+    isUpload = False
+    response = {}
+    file = request.files["file"]
+    seconds = str(time.time()).replace(".","")
+    newFile = "question-images/"+seconds + "-" + file.filename
+    uploadFileToS3(newFile, file)
+    image_url = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
     isUpload = True
     response["isUpload"] = isUpload
     response["imageUrl"] = image_url
