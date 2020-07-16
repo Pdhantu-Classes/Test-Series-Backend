@@ -432,9 +432,9 @@ def adminDashboard():
 @app.route('/allUsers',methods=["GET"])
 def getAllUsers():
     page = request.headers.get("page")
-    offset = 12*(int(page)-1)
+    offset = 20*(int(page)-1)
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select id, firstname, lastname, email, mobile, image_url, created_at, whatsapp, graduation_year, preparing_for from users order by id desc limit 12 offset %s """,[offset])
+    cursor.execute(""" select id, firstname, lastname, email, mobile, image_url, created_at, whatsapp, graduation_year, preparing_for from users order by id desc limit 20 offset %s """,[offset])
     result = cursor.fetchall()
     cursor.execute(""" select count(*) as total from users""")
     total = cursor.fetchone()
@@ -448,9 +448,9 @@ def getAllUsers():
 @app.route('/paidUsers',methods=["GET"])
 def getPaidUsers():
     page = request.headers.get("page")
-    offset = 12*(int(page)-1)
+    offset = 20*(int(page)-1)
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select u.id, u.firstname, u.lastname, u.email, u.mobile, u.image_url, u.created_at, u.whatsapp, u.graduation_year, u.preparing_for, o.order_id, o.order_at, o.status from users u join order_history o on u.id = o.user_id order by u.id desc limit 12 offset %s""", [offset])
+    cursor.execute(""" select u.id, u.firstname, u.lastname, u.email, u.mobile, u.image_url, u.created_at, u.whatsapp, u.graduation_year, u.preparing_for, o.order_id, o.order_at, o.status from users u join order_history o on u.id = o.user_id order by u.id desc limit 20 offset %s""", [offset])
     result = cursor.fetchall()
     cursor.execute(""" select count(*) as total from users u join order_history o on u.id = o.user_id""")
     total = cursor.fetchone()
@@ -463,9 +463,9 @@ def getPaidUsers():
 @app.route('/unpaidUsers',methods=["GET"])
 def getUnpaidUsers():
     page = request.headers.get("page")
-    offset = 12*(int(page)-1)
+    offset = 20*(int(page)-1)
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select users.id, firstname, lastname, email, mobile, image_url, created_at, whatsapp, graduation_year, preparing_for from users left outer join order_history on users.id = order_history.user_id where order_history.user_id is null order by users.id desc limit 12 offset %s""", [offset])
+    cursor.execute(""" select users.id, firstname, lastname, email, mobile, image_url, created_at, whatsapp, graduation_year, preparing_for from users left outer join order_history on users.id = order_history.user_id where order_history.user_id is null order by users.id desc limit 20 offset %s""", [offset])
     result = cursor.fetchall()
     cursor.execute(""" select count(*) as total from users left outer join order_history on users.id = order_history.user_id where order_history.user_id is null""")
     total = cursor.fetchone()
@@ -595,7 +595,7 @@ def getMockQuestion(id):
     cursor = mysql.connection.cursor()
     cursor.execute(""" select total_questions from mock_paper where id = (%s) """,[id])
     questions = cursor.fetchone()
-    cursor.execute(""" select id, question_english, question_hindi, options_english, options_hindi from mock_questions where paper_id = (%s) order by id asc limit %s """,[id,questions["total_questions"]])
+    cursor.execute(""" select * from mock_questions where paper_id = (%s) order by id asc limit %s """,[id,questions["total_questions"]])
     results = cursor.fetchall()
     for result in results:
         temp_data = {}
@@ -620,7 +620,17 @@ def getMockQuestion(id):
             temp_data["options_hindi"] = result["options_hindi"].split('$')
         else:
             temp_data["options_hindi"] = ["","","","",""]
+        
+        if result["extras_question"]:
+            temp_data["extras_question"] = result["extras_question"].split('$')
+        else:
+            temp_data["extras_question"] = []
 
+        if result["extras_option"]:
+            temp_data["extras_option"] = result["extras_option"].split('$')
+        else:
+            temp_data["extras_option"] = []
+        temp_data["question_type"] = result["question_type"]
         questions_data.append(temp_data)
     mysql.connection.commit()
     cursor.close()
