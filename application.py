@@ -561,6 +561,19 @@ def addUserToPaymentList():
     cursor.close()
     return response
 
+@app.route('/getLiveMockStatus',methods=["GET"])
+def getLiveMockStatus():
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select id,mock_paper_name from mock_paper where is_active = 1""")
+    mock_paper_details = cursor.fetchall()
+    for mock in mock_paper_details:
+        cursor.execute("""select count(*) as user_count from mock_submissions where mock_paper_id = (%s)""",[mock["id"]])
+        user_details = cursor.fetchone()
+        mock["user_count"] = user_details["user_count"]
+    response =app.response_class(response=json.dumps({"message":"All Mock Status", "mock_data":mock_paper_details}),status= 200, mimetype='application/json')
+    mysql.connection.commit()
+    cursor.close()
+    return response
 
 
 
