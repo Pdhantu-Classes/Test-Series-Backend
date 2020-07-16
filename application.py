@@ -432,9 +432,9 @@ def adminDashboard():
 @app.route('/allUsers',methods=["GET"])
 def getAllUsers():
     page = request.headers.get("page")
-    offset = 12*(int(page)-1)
+    offset = 20*(int(page)-1)
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select id, firstname, lastname, email, mobile, image_url, created_at, whatsapp, graduation_year, preparing_for from users order by id desc limit 12 offset %s """,[offset])
+    cursor.execute(""" select id, firstname, lastname, email, mobile, image_url, created_at, whatsapp, graduation_year, preparing_for from users order by id desc limit 20 offset %s """,[offset])
     result = cursor.fetchall()
     cursor.execute(""" select count(*) as total from users""")
     total = cursor.fetchone()
@@ -448,9 +448,9 @@ def getAllUsers():
 @app.route('/paidUsers',methods=["GET"])
 def getPaidUsers():
     page = request.headers.get("page")
-    offset = 12*(int(page)-1)
+    offset = 20*(int(page)-1)
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select u.id, u.firstname, u.lastname, u.email, u.mobile, u.image_url, u.created_at, u.whatsapp, u.graduation_year, u.preparing_for, o.order_id, o.order_at, o.status from users u join order_history o on u.id = o.user_id order by u.id desc limit 12 offset %s""", [offset])
+    cursor.execute(""" select u.id, u.firstname, u.lastname, u.email, u.mobile, u.image_url, u.created_at, u.whatsapp, u.graduation_year, u.preparing_for, o.order_id, o.order_at, o.status from users u join order_history o on u.id = o.user_id order by u.id desc limit 20 offset %s""", [offset])
     result = cursor.fetchall()
     cursor.execute(""" select count(*) as total from users u join order_history o on u.id = o.user_id""")
     total = cursor.fetchone()
@@ -463,9 +463,9 @@ def getPaidUsers():
 @app.route('/unpaidUsers',methods=["GET"])
 def getUnpaidUsers():
     page = request.headers.get("page")
-    offset = 12*(int(page)-1)
+    offset = 20*(int(page)-1)
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select users.id, firstname, lastname, email, mobile, image_url, created_at, whatsapp, graduation_year, preparing_for from users left outer join order_history on users.id = order_history.user_id where order_history.user_id is null order by users.id desc limit 12 offset %s""", [offset])
+    cursor.execute(""" select users.id, firstname, lastname, email, mobile, image_url, created_at, whatsapp, graduation_year, preparing_for from users left outer join order_history on users.id = order_history.user_id where order_history.user_id is null order by users.id desc limit 20 offset %s""", [offset])
     result = cursor.fetchall()
     cursor.execute(""" select count(*) as total from users left outer join order_history on users.id = order_history.user_id where order_history.user_id is null""")
     total = cursor.fetchone()
@@ -513,6 +513,63 @@ def releaseResult():
     cursor.execute(""" UPDATE mock_paper SET is_result_released = 1 where id=(%s)""",[mock_paper_id])
     mysql.connection.commit()
     response =app.response_class(response=json.dumps({"message":"Result Released Successfully"}),status= 200, mimetype='application/json')
+    cursor.close()
+    return response
+
+@app.route('/checkPayment',methods=["GET"])
+def checkPayment():
+    email = request.headers.get("email")
+    user_exist = False
+    is_exist = False
+    payment_exist = []
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select id from users where email=(%s)""",[email])
+    user_id = cursor.fetchone()
+    if user_id:
+        user_exist = True
+    if user_exist:
+        cursor.execute("""select oh.*, u.firstname,u.lastname,u.email from users u join order_history oh on u.id=oh.user_id where user_id=(%s)""",[user_id["id"]])
+        temp = cursor.fetchone()
+        mysql.connection.commit()
+        cursor.close()
+        if temp:
+            response =app.response_class(response=json.dumps({"message":"User Payment Details", "isExist":True, "payment_data":temp}),status= 200, mimetype='application/json')
+        else :
+             response =app.response_class(response=json.dumps({"message":"User Payment Details", "isExist":False}),status= 200, mimetype='application/json')
+    else:
+         response =app.response_class(response=json.dumps({"message":"User Not Exist", "isExist":False}),status= 200, mimetype='application/json')    
+   
+    return response
+
+@app.route('/addUserToPaymentList',methods=["POST"])
+def addUserToPaymentList():
+    email = request.json["email"]
+    order_id = request.json["order_id"]
+    payment_id = request.json["payment_id"]
+    order_at = request.json["payment_date"]
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select id from users where email=(%s)""",[email])
+    user_id = cursor.fetchone()
+    if user_id:
+        cursor.execute("""insert into order_history(payment_id, order_id, user_id, price, order_at, status, test_name) values(%s,%s,%s,%s,%s,%s,%s)""",[payment_id,order_id,user_id["id"],240,order_at,"success","Pdhantu Test Series"])
+        response =app.response_class(response=json.dumps({"message":"Payment Details Updated Successfully"}),status= 200, mimetype='application/json')
+    else:
+        response =app.response_class(response=json.dumps({"message":"User not exist"}),status= 200, mimetype='application/json')
+    mysql.connection.commit()
+    cursor.close()
+    return response
+
+@app.route('/getLiveMockStatus',methods=["GET"])
+def getLiveMockStatus():
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select id,mock_paper_name from mock_paper where is_active = 1""")
+    mock_paper_details = cursor.fetchall()
+    for mock in mock_paper_details:
+        cursor.execute("""select count(*) as user_count from mock_submissions where mock_paper_id = (%s)""",[mock["id"]])
+        user_details = cursor.fetchone()
+        mock["user_count"] = user_details["user_count"]
+    response =app.response_class(response=json.dumps({"message":"All Mock Status", "mock_data":mock_paper_details}),status= 200, mimetype='application/json')
+    mysql.connection.commit()
     cursor.close()
     return response
 
@@ -595,7 +652,7 @@ def getMockQuestion(id):
     cursor = mysql.connection.cursor()
     cursor.execute(""" select total_questions from mock_paper where id = (%s) """,[id])
     questions = cursor.fetchone()
-    cursor.execute(""" select id, question_english, question_hindi, options_english, options_hindi from mock_questions where paper_id = (%s) order by id asc limit %s """,[id,questions["total_questions"]])
+    cursor.execute(""" select * from mock_questions where paper_id = (%s) order by id asc limit %s """,[id,questions["total_questions"]])
     results = cursor.fetchall()
     for result in results:
         temp_data = {}
@@ -620,7 +677,17 @@ def getMockQuestion(id):
             temp_data["options_hindi"] = result["options_hindi"].split('$')
         else:
             temp_data["options_hindi"] = ["","","","",""]
+        
+        if result["extras_question"]:
+            temp_data["extras_question"] = result["extras_question"].split('$')
+        else:
+            temp_data["extras_question"] = []
 
+        if result["extras_option"]:
+            temp_data["extras_option"] = result["extras_option"].split('$')
+        else:
+            temp_data["extras_option"] = []
+        temp_data["question_type"] = result["question_type"]
         questions_data.append(temp_data)
     mysql.connection.commit()
     cursor.close()
