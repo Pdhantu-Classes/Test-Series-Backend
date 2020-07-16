@@ -516,6 +516,52 @@ def releaseResult():
     cursor.close()
     return response
 
+@app.route('/checkPayment',methods=["GET"])
+def checkPayment():
+    email = request.headers.get("email")
+    user_exist = False
+    is_exist = False
+    payment_exist = []
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select id from users where email=(%s)""",[email])
+    user_id = cursor.fetchone()
+    if user_id:
+        user_exist = True
+    if user_exist:
+        cursor.execute("""select id from order_history where user_id=(%s)""",[user_id["id"]])
+        temp = cursor.fetchone()
+        payment_exist.append(temp)
+    if len(payment_exist) > 0:
+        is_exist = True
+    if is_exist:
+        cursor.execute("""select oh.*, u.firstname,u.lastname,u.email from users u join order_history oh on u.id=oh.user_id where user_id=(%s)""",[user_id["id"]])
+        payment_data = cursor.fetchone()
+        response =app.response_class(response=json.dumps({"message":"User Payment Details", "isExist":is_exist, "payment_data":payment_data}),status= 200, mimetype='application/json')
+    else:
+        response =app.response_class(response=json.dumps({"message":"User Payment Details", "isExist":is_exist}),status= 200, mimetype='application/json')
+    mysql.connection.commit()
+    cursor.close()
+    return response
+
+@app.route('/addUserToPaymentList',methods=["POST"])
+def addUserToPaymentList():
+    email = request.json["email"]
+    order_id = request.json["order_id"]
+    payment_id = request.json["payment_id"]
+    order_at = request.json["payment_date"]
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select id from users where email=(%s)""",[email])
+    user_id = cursor.fetchone()
+    if user_id:
+        cursor.execute("""insert into order_history(payment_id, order_id, user_id, price, order_at, status, test_name) values(%s,%s,%s,%s,%s,%s,%s)""",[payment_id,order_id,user_id["id"],240,order_at,"success","Pdhantu Test Series"])
+        response =app.response_class(response=json.dumps({"message":"Payment Details Updated Successfully"}),status= 200, mimetype='application/json')
+    else:
+        response =app.response_class(response=json.dumps({"message":"User not exist"}),status= 200, mimetype='application/json')
+    mysql.connection.commit()
+    cursor.close()
+    return response
+
+
 
 
 ## Test Series End ##
