@@ -37,8 +37,8 @@ RAZORPAY_SECRET = 'CfgHyNIXwyyDF1KL9KbrnSW4'
 MYSQL_HOST = 'database-pdhantu.cqa6f6gkxqbj.us-east-2.rds.amazonaws.com'
 MYSQL_USER = 'root'
 MYSQL_PASSWORD = 'root_123'
-MYSQL_DB = 'pdhantu-dev'
-# MYSQL_DB = 'pdhantu-prod'
+# MYSQL_DB = 'pdhantu-dev'
+MYSQL_DB = 'pdhantu-prod'
 MYSQL_CURSORCLASS = 'DictCursor'
 
 
@@ -602,19 +602,17 @@ def checkPayment():
     if user_id:
         user_exist = True
     if user_exist:
-        cursor.execute("""select id from order_history where user_id=(%s)""",[user_id["id"]])
-        temp = cursor.fetchone()
-        payment_exist.append(temp)
-    if len(payment_exist) > 0:
-        is_exist = True
-    if is_exist:
         cursor.execute("""select oh.*, u.firstname,u.lastname,u.email from users u join order_history oh on u.id=oh.user_id where user_id=(%s)""",[user_id["id"]])
-        payment_data = cursor.fetchone()
-        response =app.response_class(response=json.dumps({"message":"User Payment Details", "isExist":is_exist, "payment_data":payment_data}),status= 200, mimetype='application/json')
+        temp = cursor.fetchone()
+        mysql.connection.commit()
+        cursor.close()
+        if temp:
+            response =app.response_class(response=json.dumps({"message":"User Payment Details", "isExist":True, "payment_data":temp}),status= 200, mimetype='application/json')
+        else :
+             response =app.response_class(response=json.dumps({"message":"User Payment Details", "isExist":False}),status= 200, mimetype='application/json')
     else:
-        response =app.response_class(response=json.dumps({"message":"User Payment Details", "isExist":is_exist}),status= 200, mimetype='application/json')
-    mysql.connection.commit()
-    cursor.close()
+         response =app.response_class(response=json.dumps({"message":"User Not Exist", "isExist":False}),status= 200, mimetype='application/json')    
+   
     return response
 
 @app.route('/addUserToPaymentList',methods=["POST"])
