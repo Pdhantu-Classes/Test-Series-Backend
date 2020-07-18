@@ -39,8 +39,10 @@ RAZORPAY_SECRET = 'CfgHyNIXwyyDF1KL9KbrnSW4'
 MYSQL_HOST = 'database-pdhantu.cqa6f6gkxqbj.us-east-2.rds.amazonaws.com'
 MYSQL_USER = 'root'
 MYSQL_PASSWORD = 'root_123'
-# MYSQL_DB = 'pdhantu-dev'
+
 MYSQL_DB = 'pdhantu-prod'
+# MYSQL_DB = 'pdhantu-dev'
+
 MYSQL_CURSORCLASS = 'DictCursor'
 
 
@@ -735,7 +737,7 @@ def getMockQuestion(id):
         temp_data["id"] = result["id"]
 
         if result["question_english"]:
-            temp_data["question_english"] = result["question_english"]
+            temp_data["question_english"] = result["question_english"].split('$')
         else:
             temp_data["question_english"] = ""
 
@@ -745,7 +747,7 @@ def getMockQuestion(id):
             temp_data["options_english"] = ["","","","",""]
 
         if result["question_hindi"]:
-            temp_data["question_hindi"] = result["question_hindi"]
+            temp_data["question_hindi"] = result["question_hindi"].split('$')
         else:
             temp_data["question_hindi"] = ""
 
