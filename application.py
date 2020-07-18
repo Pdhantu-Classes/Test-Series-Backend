@@ -292,6 +292,81 @@ def uploadQuestionImage():
     response["imageUrl"] = image_url
     return json.dumps(response)
 
+@app.route('/upload-image-bulk-question', methods=["POST"])
+def uploadImageBulk():
+    isUpload = False
+    imageUrl = []
+    response = {}
+    for file in request.files.getlist('file'):
+        seconds = str(time.time()).replace(".","")
+        newFile = "question_paper_pdf/"+seconds + "-" + file.filename
+        image_url = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
+        uploadFileToS3(newFile,file)
+        imageUrl.append(image_url)
+        isUpload = True
+    response["isUpload"] = isUpload
+    response["imageUrl"] = imageUrl
+    return json.dumps(response)
+
+@app.route('/dump-question-images', methods=["POST"])
+def dumpImages():
+    response = {}
+    images = request.json["images"]
+    mock_paper_id = request.json["mock_paper_id"]
+    for image in images:
+        cursor = mysql.connection.cursor()
+        cursor.execute("""INSERT into questions_paper_pdf(mock_paper_id, question_image_url) values(%s,%s)""", [mock_paper_id,image])
+        mysql.connection.commit()
+        cursor.close()
+    response["isUpload"] = True
+    return json.dumps(response)
+
+@app.route('/upload-image-answer', methods=["POST"])
+def uploadImageAnswerKey():
+    isUpload = False
+    file = request.files["file"]
+    response = {}
+    seconds = str(time.time()).replace(".","")
+    newFile = "answer_key_pdf/"+seconds + "-" + file.filename
+    image_url = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
+    uploadFileToS3(newFile,file)
+    isUpload = True
+    response["isUpload"] = isUpload
+    response["imageUrl"] = image_url
+    return json.dumps(response)
+
+@app.route('/dump-images-answer', methods=["POST"])
+def dumpImagesAnswerKey():
+    response = {}
+    images = request.json["images"]
+    mock_paper_id = request.json["mock_paper_id"]
+    isUpload = False
+    for image in images:
+        cursor = mysql.connection.cursor()
+        cursor.execute("""INSERT into questions_paper_pdf(mock_paper_id, question_image_url) values(%s,%s)""", [mock_paper_id,image])
+        mysql.connection.commit()
+        cursor.close()
+        print(image)
+    response["isUpload"] = isUpload
+    return json.dumps(response)
+
+@app.route('/getMockPaperForQuestion', methods=["GET"])
+def getMockPaperQuestion():
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select id, mock_paper_name from mock_paper where id not in(select distinct(mock_paper_id) from questions_paper_pdf )""")
+    result = cursor.fetchall()
+    mysql.connection.commit()
+    cursor.close()
+    return json.dumps({"result":result})
+
+@app.route('/getMockPaperForAnswer', methods=["GET"])
+def getMockPaperAnswer():
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select id, mock_paper_name from mock_paper where id not in(select distinct(mock_paper_id) from answer_paper_pdf )""")
+    result = cursor.fetchall()
+    mysql.connection.commit()
+    cursor.close()
+    return json.dumps(result)
 
 
 @app.route('/isUserRegister/<int:user_id>', methods=["GET"])
@@ -306,7 +381,6 @@ def isUserRegister(user_id):
         isValid = True
     response =app.response_class(response=json.dumps({"message":"User details exist","isValid":isValid}),status= 200, mimetype='application/json')
     return response
-
 
 
 @app.route('/userDetails/<int:user_id>', methods=["GET"])
@@ -703,6 +777,7 @@ def postMockResponse():
     mock_paper_id = request.json["mock_paper_id"]
     user_id = request.json["user_id"]
     paper_time_taken = request.json["paper_time_taken"]
+    print(mock_paper_id)
     submission_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
     correct = 0
     incorrect = 0
@@ -711,7 +786,7 @@ def postMockResponse():
     attempted = 0
     not_attempted = 0
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select * from mock_paper where id = (%s) """,[mock_paper_id])
+    cursor.execute(""" select total_questions from mock_paper where id = (%s) """,[mock_paper_id])
     questions = cursor.fetchone()
 
     total_questions = questions["total_questions"]
@@ -782,6 +857,16 @@ def getMockResponse():
         else:
             temp_data["options_hindi"] = ["","","","",""]
 
+        if result["extras_question"]:
+            temp_data["extras_question"] = result["extras_question"].split('$')
+        else:
+            temp_data["extras_question"] = []
+
+        if result["extras_option"]:
+            temp_data["extras_option"] = result["extras_option"].split('$')
+        else:
+            temp_data["extras_option"] = []
+        temp_data["question_type"] = result["question_type"]
         temp_data["answer"] = result["answer"]
         questions_data.append(temp_data)
 
@@ -879,6 +964,7 @@ def demoTest():
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Demo data are", "isValid":isValid}),status= 200, mimetype='application/json')
     return response   
+
 
 
 
