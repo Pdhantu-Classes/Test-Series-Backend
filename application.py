@@ -41,7 +41,6 @@ MYSQL_USER = 'root'
 MYSQL_PASSWORD = 'root_123'
 MYSQL_DB = 'pdhantu-dev'
 # MYSQL_DB = 'pdhantu-prod'
-#MYSQL_DB = 'pdhantu-prod'
 MYSQL_CURSORCLASS = 'DictCursor'
 
 
@@ -280,7 +279,7 @@ def uploadImage():
     response["imageUrl"] = image_url
     return json.dumps(response)
 
-
+# Upload Images and Dump to DB
 @app.route('/upload-question-image', methods=["POST"])
 def uploadQuestionImage():
     isUpload = False
@@ -365,13 +364,34 @@ def getMockPaperQuestion():
 @app.route('/getMockPaperForAnswer', methods=["GET"])
 def getMockPaperAnswer():
     cursor = mysql.connection.cursor()
-    cursor.execute("""select id, mock_paper_name from mock_paper where id not in(select distinct(mock_paper_id) from answer_paper_pdf )""")
+    cursor.execute("""select id, mock_paper_name from mock_paper where id not in(select distinct(mock_paper_id) from answer_key_pdf )""")
+    result = cursor.fetchall()
+    mysql.connection.commit()
+    cursor.close()
+    return json.dumps(result)
+
+@app.route('/getMockPaperPdfImages', methods=["GET"])
+def getMockPaperPdfImages():
+    mock_paper_id = request.headers.get("mock_paper_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select * from  questions_paper_pdf where mock_paper_id = (%s)""",[mock_paper_id])
+    result = cursor.fetchall()
+    mysql.connection.commit()
+    cursor.close()
+    return json.dumps(result)
+
+@app.route('/getMockAnswerKeyImages', methods=["GET"])
+def getMockAnswerKeyImages():
+    mock_paper_id = request.headers.get("mock_paper_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select * from  answer_key_pdf where mock_paper_id = (%s)""",[mock_paper_id])
     result = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
     return json.dumps(result)
 
 
+# Check User Registered
 @app.route('/isUserRegister/<int:user_id>', methods=["GET"])
 def isUserRegister(user_id):
     cursor = mysql.connection.cursor()
@@ -667,10 +687,12 @@ def getAllMockPaper():
     user_submissions = cursor.fetchall()
     for mock_p in mock_papers:
         temp_dict = {}
-        is_attepmted = 0
+        is_attempted = 0
+        is_live_attempted = 0
         for user_s in user_submissions:
             if user_s["mock_paper_id"] == mock_p["id"]:
-                is_attepmted = 1
+                is_attempted = user_s["is_attempted"]
+                is_live_attempted = user_s["is_live_attempted"]
                 break
         temp_dict["id"] = mock_p["id"]
         temp_dict["mock_paper_name"] = mock_p["mock_paper_name"]
@@ -679,7 +701,8 @@ def getAllMockPaper():
         temp_dict["is_active"] = mock_p["is_active"]
         temp_dict["is_finished"] = mock_p["is_finished"]
         temp_dict["is_result_released"] = mock_p["is_result_released"]
-        temp_dict["is_attempted"] = is_attepmted
+        temp_dict["is_attempted"] = is_attempted
+        temp_dict["is_live_attempted"] = is_live_attempted
         mock_paper_data.append(temp_dict)
     mysql.connection.commit()
     cursor.close()
@@ -789,10 +812,10 @@ def postMockResponse():
     attempted = 0
     not_attempted = 0
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select total_questions from mock_paper where id = (%s) """,[mock_paper_id])
+    cursor.execute(""" select total_questions,is_active from mock_paper where id = (%s) """,[mock_paper_id])
     questions = cursor.fetchone()
-
     total_questions = questions["total_questions"]
+    is_live_attempted = questions["is_active"]
 
     cursor.execute(""" select answer from mock_questions where paper_id = (%s) order by id asc limit %s """,[mock_paper_id,total_questions])
     answers = cursor.fetchall()
@@ -814,7 +837,7 @@ def postMockResponse():
     not_attempted = total_questions - attempted
 
     print(total_marks, accuracy, attempted, not_attempted, total_questions, correct, incorrect, paper_time_taken, user_id, mock_paper_id, test_response,submission_at)
-    cursor.execute("""insert into mock_submissions (user_id, mock_paper_id, responses, total_questions, correct, incorrect, attempted, not_attempted, total_marks, accuracy, paper_time_taken, submission_at) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",[user_id,mock_paper_id,test_response,total_questions,correct,incorrect,attempted,not_attempted,total_marks,accuracy,paper_time_taken,submission_at])
+    cursor.execute("""insert into mock_submissions (user_id, mock_paper_id, responses, total_questions, correct, incorrect, attempted, not_attempted, total_marks, accuracy, paper_time_taken, is_live_attempted, submission_at) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",[user_id,mock_paper_id,test_response,total_questions,correct,incorrect,attempted,not_attempted,total_marks,accuracy,paper_time_taken, is_live_attempted, submission_at])
     mysql.connection.commit()
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Response Submitted"}),status= 200, mimetype='application/json')
