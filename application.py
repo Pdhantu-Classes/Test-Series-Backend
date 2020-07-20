@@ -518,6 +518,8 @@ def finishPaper():
     response =app.response_class(response=json.dumps({"message":"Paper Finished Successfully"}),status= 200, mimetype='application/json')
     cursor.close()
     return response
+
+
 #Mock Rank Released and PDF
 @app.route('/releaseResult',methods=["POST"])
 def releaseResult():
@@ -579,7 +581,7 @@ def addUserToPaymentList():
 @app.route('/getLiveMockStatus',methods=["GET"])
 def getLiveMockStatus():
     cursor = mysql.connection.cursor()
-    cursor.execute("""select id,mock_paper_name from mock_paper where is_active = 1""")
+    cursor.execute("""select id,mock_paper_name,is_active from mock_paper where is_active = 1 or is_finished = 1""")
     mock_paper_details = cursor.fetchall()
     for mock in mock_paper_details:
         cursor.execute("""select count(*) as user_count from mock_submissions where mock_paper_id = (%s)""",[mock["id"]])
@@ -686,6 +688,18 @@ def getMockPaperAnswer():
     mysql.connection.commit()
     cursor.close()
     return json.dumps(result)
+
+# Get User List wrt Mock Paper
+@app.route('/getUserListMock',methods=["GET"])
+def getUserListMock():
+    mock_paper_id = request.headers.get("mock_paper_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select us.id as user_id, us.firstname user_firstname, us.lastname as user_lastname,us.email as user_email, ms.total_marks as marks, ms.accuracy as accuracy, ms.paper_time_taken as paper_time from mock_submissions ms join users us on ms.user_id = us.id where ms.mock_paper_id = (%s) order by ms.total_marks desc, ms.accuracy desc, ms.paper_time_taken asc""",[mock_paper_id])
+    user_list = cursor.fetchall()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"User List are", "user_list":user_list}),status= 200, mimetype='application/json')
+    return response   
 
 
 
@@ -1001,7 +1015,8 @@ def checkPaidUser():
     mysql.connection.commit()
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Check Paid User", "isValid":isValid}),status= 200, mimetype='application/json')
-    return response   
+    return response
+
 
 # For Demo Test
 @app.route('/demoTest',methods=["GET"])
@@ -1018,17 +1033,6 @@ def demoTest():
     response =app.response_class(response=json.dumps({"message":"Demo data are", "isValid":isValid}),status= 200, mimetype='application/json')
     return response   
 
-# Get User List wrt Mock Paper
-@app.route('/getUserListMock',methods=["GET"])
-def getUserListMock():
-    mock_paper_id = request.headers.get("mock_paper_id")
-    cursor = mysql.connection.cursor()
-    cursor.execute(""" select us.id as user_id, us.firstname user_firstname, us.lastname as user_lastname,us.email as user_email, ms.total_marks as marks, ms.accuracy as accuracy, ms.paper_time_taken as paper_time from mock_submissions ms join users us on ms.user_id = us.id where ms.mock_paper_id = (%s) order by ms.total_marks desc, ms.accuracy desc, ms.paper_time_taken asc""",[mock_paper_id])
-    user_list = cursor.fetchone()
-    mysql.connection.commit()
-    cursor.close()
-    response =app.response_class(response=json.dumps({"message":"Demo data are", "user_list":user_list}),status= 200, mimetype='application/json')
-    return response   
 
 if __name__ == "__main__":
     app.run(debug="True", host="0.0.0.0", port=5000)
