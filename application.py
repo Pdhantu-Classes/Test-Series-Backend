@@ -811,36 +811,45 @@ def postMockResponse():
     accuracy = 0
     attempted = 0
     not_attempted = 0
+    total_questions = 0
+    is_live_attempted = 0
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select total_questions,is_active from mock_paper where id = (%s) """,[mock_paper_id])
-    questions = cursor.fetchone()
-    total_questions = questions["total_questions"]
-    is_live_attempted = questions["is_active"]
 
-    cursor.execute(""" select answer from mock_questions where paper_id = (%s) order by id asc limit %s """,[mock_paper_id,total_questions])
-    answers = cursor.fetchall()
-
-    for answer in answers:
-        if responses[i] != "":
-            print(responses[i], answer)
-            if answer["answer"].lower() == responses[i]:
-                correct += 1
-            else:
-                incorrect += 1
-        i += 1
-    total_marks = round(correct*2 - incorrect*(2/3), 2)
-    if (correct+incorrect) == 0:
-        accuracy = 0
+    cursor.execute(""" select id from mock_submissions where user_id = (%s) and mock_paper_id =(%s) """,[user_id,mock_paper_id])
+    is_already_exist = cursor.fetchone()
+    
+    if is_already_exist:
+        response =app.response_class(response=json.dumps({"message":"Response Submitted"}),status= 200, mimetype='application/json')
     else:
-        accuracy = int(round(correct/(correct+incorrect), 2)*100)
-    attempted = correct + incorrect
-    not_attempted = total_questions - attempted
+        cursor.execute(""" select total_questions,is_active from mock_paper where id = (%s) """,[mock_paper_id])
+        questions = cursor.fetchone()
+        total_questions = questions["total_questions"]
+        is_live_attempted = questions["is_active"]
 
-    print(total_marks, accuracy, attempted, not_attempted, total_questions, correct, incorrect, paper_time_taken, user_id, mock_paper_id, test_response,submission_at)
-    cursor.execute("""insert into mock_submissions (user_id, mock_paper_id, responses, total_questions, correct, incorrect, attempted, not_attempted, total_marks, accuracy, paper_time_taken, is_live_attempted, submission_at) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",[user_id,mock_paper_id,test_response,total_questions,correct,incorrect,attempted,not_attempted,total_marks,accuracy,paper_time_taken, is_live_attempted, submission_at])
-    mysql.connection.commit()
-    cursor.close()
-    response =app.response_class(response=json.dumps({"message":"Response Submitted"}),status= 200, mimetype='application/json')
+        cursor.execute(""" select answer from mock_questions where paper_id = (%s) order by id asc limit %s """,[mock_paper_id,total_questions])
+        answers = cursor.fetchall()
+        
+        for answer in answers:
+            if responses[i] != "":
+                print(responses[i], answer)
+                if answer["answer"].lower() == responses[i]:
+                    correct += 1
+                else:
+                    incorrect += 1
+            i += 1
+        total_marks = round(correct*2 - incorrect*(2/3), 2)
+        if (correct+incorrect) == 0:
+            accuracy = 0
+        else:
+            accuracy = int(round(correct/(correct+incorrect), 2)*100)
+        attempted = correct + incorrect
+        not_attempted = total_questions - attempted
+
+        print(total_marks, accuracy, attempted, not_attempted, total_questions, correct, incorrect, paper_time_taken, user_id, mock_paper_id, test_response,submission_at)
+        cursor.execute("""insert into mock_submissions (user_id, mock_paper_id, responses, total_questions, correct, incorrect, attempted, not_attempted, total_marks, accuracy, paper_time_taken, is_live_attempted, submission_at) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",[user_id,mock_paper_id,test_response,total_questions,correct,incorrect,attempted,not_attempted,total_marks,accuracy,paper_time_taken, is_live_attempted, submission_at])
+        mysql.connection.commit()
+        cursor.close()
+        response =app.response_class(response=json.dumps({"message":"Response Submitted"}),status= 200, mimetype='application/json')
     return response
 
 
@@ -926,7 +935,7 @@ def getMockResponse():
 def getRankMockPaper():
     mock_paper_id = request.headers.get("mock_paper_id")
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select us.id as user_id, us.firstname user_firstname, us.lastname as user_lastname,us.email as user_email, ms.total_marks as marks, ms.accuracy as accuracy, ms.paper_time_taken as paper_time from mock_submissions ms join users us on ms.user_id = us.id where ms.mock_paper_id = (%s) order by ms.total_marks desc, ms.accuracy desc, ms.paper_time_taken asc""",[mock_paper_id])
+    cursor.execute(""" select us.id as user_id, us.firstname user_firstname, us.lastname as user_lastname,us.email as user_email, ms.total_marks as marks, ms.accuracy as accuracy, ms.paper_time_taken as paper_time from mock_submissions ms join users us on ms.user_id = us.id where ms.mock_paper_id = (%s) and ms.is_live_attempted = 1 order by ms.total_marks desc, ms.accuracy desc, ms.paper_time_taken asc""",[mock_paper_id])
     ranks = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
