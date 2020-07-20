@@ -1,5 +1,3 @@
-
-
 import json
 import os
 from datetime import datetime
@@ -64,9 +62,8 @@ def hmac_sha256(val):
         "ASCII"), digestmod=hashlib.sha256).hexdigest()
     print(h)
     return h
+
 # Upload Photo to S3 bucket
-
-
 def uploadFileToS3(fileName, file):
     s3 = boto3.resource(
         's3',
@@ -76,26 +73,27 @@ def uploadFileToS3(fileName, file):
     )
     s3.Bucket(BUCKET_NAME).put_object(Key=fileName, Body=file)
 
-
-@app.route('/', methods=["GET"])
-def hello():
-    return "Hello World"
-
-
+# Generate MD5 hashing
 def md5_hash(string):
     hash = hashlib.md5()
     hash.update(string.encode('utf-8'))
     return hash.hexdigest()
 
-
+# Generate Salt
 def generate_salt():
     salt = os.urandom(16)
     return salt.hex()
 
+# Generate Random String
 def randomString(stringLength=8):
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters) for i in range(stringLength))
 
+
+# Test
+@app.route('/', methods=["GET"])
+def hello():
+    return "Hello World"
 
 # SignUp
 @app.route('/signup', methods=['POST'])
@@ -198,7 +196,7 @@ def changePassword():
     response = app.response_class(response=json.dumps({"message": "Password Change Successfully", "isValid": True}), status=200, mimetype='application/json')
     return response
 
-# Facebook Login
+# Social Login
 @app.route('/socialLogin', methods=["POST"])
 def facebookLogin():
     uuid = request.json["uuid"]
@@ -228,7 +226,7 @@ def facebookLogin():
         return json.dumps("Something went wrong, Try Again")
 
 
-
+# Razorpay Create Order
 @app.route('/createOrder', methods=['POST'])
 def create_app():
     paye_id = randomString(10)
@@ -239,7 +237,7 @@ def create_app():
         amount=order_amount, currency=order_currency, receipt=order_receipt, payment_capture='1')
     return json.dumps(razorId["id"])
 
-
+# Razorpay Verify Signature
 @app.route('/verifyRazorpaySucces', methods=['POST'])
 def verify_payment():
     user_id = request.json["user_id"]
@@ -260,6 +258,7 @@ def verify_payment():
     cursor.close()
     return json.dumps({"isSuccess": is_success})
 
+# Upload Profile Image
 @app.route('/upload-image', methods=["POST"])
 def uploadImage():
     isUpload = False
@@ -279,97 +278,7 @@ def uploadImage():
     response["imageUrl"] = image_url
     return json.dumps(response)
 
-# Upload Images and Dump to DB
-@app.route('/upload-question-image', methods=["POST"])
-def uploadQuestionImage():
-    isUpload = False
-    response = {}
-    file = request.files["file"]
-    seconds = str(time.time()).replace(".","")
-    newFile = "question-images/"+seconds + "-" + file.filename
-    uploadFileToS3(newFile, file)
-    image_url = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
-    isUpload = True
-    response["isUpload"] = isUpload
-    response["imageUrl"] = image_url
-    return json.dumps(response)
-
-@app.route('/upload-image-bulk-question', methods=["POST"])
-def uploadImageBulk():
-    isUpload = False
-    imageUrl = []
-    response = {}
-    for file in request.files.getlist('file'):
-        seconds = str(time.time()).replace(".","")
-        newFile = "question_paper_pdf/"+seconds + "-" + file.filename
-        image_url = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
-        uploadFileToS3(newFile,file)
-        imageUrl.append(image_url)
-        isUpload = True
-    response["isUpload"] = isUpload
-    response["imageUrl"] = imageUrl
-    return json.dumps(response)
-
-@app.route('/dump-question-images', methods=["POST"])
-def dumpImages():
-    response = {}
-    images = request.json["images"]
-    mock_paper_id = request.json["mock_paper_id"]
-    for image in images:
-        cursor = mysql.connection.cursor()
-        cursor.execute("""INSERT into questions_paper_pdf(mock_paper_id, question_image_url) values(%s,%s)""", [mock_paper_id,image])
-        mysql.connection.commit()
-        cursor.close()
-    response["isUpload"] = True
-    return json.dumps(response)
-
-@app.route('/upload-image-answer', methods=["POST"])
-def uploadImageAnswerKey():
-    isUpload = False
-    file = request.files["file"]
-    response = {}
-    seconds = str(time.time()).replace(".","")
-    newFile = "answer_key_pdf/"+seconds + "-" + file.filename
-    image_url = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
-    uploadFileToS3(newFile,file)
-    isUpload = True
-    response["isUpload"] = isUpload
-    response["imageUrl"] = image_url
-    return json.dumps(response)
-
-@app.route('/dump-images-answer', methods=["POST"])
-def dumpImagesAnswerKey():
-    response = {}
-    images = request.json["images"]
-    mock_paper_id = request.json["mock_paper_id"]
-    isUpload = False
-    for image in images:
-        cursor = mysql.connection.cursor()
-        cursor.execute("""INSERT into questions_paper_pdf(mock_paper_id, question_image_url) values(%s,%s)""", [mock_paper_id,image])
-        mysql.connection.commit()
-        cursor.close()
-        print(image)
-    response["isUpload"] = isUpload
-    return json.dumps(response)
-
-@app.route('/getMockPaperForQuestion', methods=["GET"])
-def getMockPaperQuestion():
-    cursor = mysql.connection.cursor()
-    cursor.execute("""select id, mock_paper_name from mock_paper where id not in(select distinct(mock_paper_id) from questions_paper_pdf )""")
-    result = cursor.fetchall()
-    mysql.connection.commit()
-    cursor.close()
-    return json.dumps({"result":result})
-
-@app.route('/getMockPaperForAnswer', methods=["GET"])
-def getMockPaperAnswer():
-    cursor = mysql.connection.cursor()
-    cursor.execute("""select id, mock_paper_name from mock_paper where id not in(select distinct(mock_paper_id) from answer_key_pdf )""")
-    result = cursor.fetchall()
-    mysql.connection.commit()
-    cursor.close()
-    return json.dumps(result)
-
+# Get Mock Paper PDF Images(Question Paper)
 @app.route('/getMockPaperPdfImages', methods=["GET"])
 def getMockPaperPdfImages():
     mock_paper_id = request.headers.get("mock_paper_id")
@@ -380,6 +289,8 @@ def getMockPaperPdfImages():
     cursor.close()
     return json.dumps(result)
 
+
+# Get Mock Paper PDF Images(Answer Key)
 @app.route('/getMockAnswerKeyImages', methods=["GET"])
 def getMockAnswerKeyImages():
     mock_paper_id = request.headers.get("mock_paper_id")
@@ -406,6 +317,7 @@ def isUserRegister(user_id):
     return response
 
 
+# Get Profile Details
 @app.route('/userDetails/<int:user_id>', methods=["GET"])
 def getUserDetails(user_id):
     cursor = mysql.connection.cursor()
@@ -416,6 +328,8 @@ def getUserDetails(user_id):
     response =app.response_class(response=json.dumps({"message":"User details exist","user_data":result}),status= 200, mimetype='application/json')
     return response
 
+
+# Change Profile Details 
 @app.route('/userDetails/<int:user_id>', methods=["PUT"])
 def pstUserDetails(user_id):
     whatsapp = request.json["whatsapp"]
@@ -428,6 +342,8 @@ def pstUserDetails(user_id):
     response =app.response_class(response=json.dumps({"message":"User Data Added Successfully"}),status= 200, mimetype='application/json')
     return response
 
+
+# User Order Details
 @app.route('/orderDetails/<int:user_id>', methods=["GET"])
 def getOrderDetails(user_id):
     cursor = mysql.connection.cursor()
@@ -438,6 +354,8 @@ def getOrderDetails(user_id):
     response =app.response_class(response=json.dumps({"message":"Order Details are","order_data":result}),status= 200, mimetype='application/json')
     return response
 
+
+# Check Package Buy or NOT
 @app.route('/isPackageBuy/<int:user_id>',methods=["GET"])
 def checkOrderDetails(user_id):
     isValid = False
@@ -451,6 +369,8 @@ def checkOrderDetails(user_id):
     response =app.response_class(response=json.dumps({"isValid":isValid}),status= 200, mimetype='application/json')
     return response
 
+
+# Get All Test Series bought by User
 @app.route('/myTestSeries/<int:user_id>',methods=["GET"])
 def myTestSeries(user_id):
     isValid = False
@@ -464,6 +384,7 @@ def myTestSeries(user_id):
     response =app.response_class(response=json.dumps({"isValid":isValid}),status= 200, mimetype='application/json')
     return response
 
+# User Query
 @app.route('/query',methods=["POST"])
 def submitQuery():
     name=request.json["name"]
@@ -476,13 +397,6 @@ def submitQuery():
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Response Added Successfully"}),status= 200, mimetype='application/json')
     return response
-
-
-
-
-
-
-
 
 
 ##### Admin End #####
@@ -581,8 +495,9 @@ def getAllMockAdmin():
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Mock Papers are", "mock_paper":result}),status= 200, mimetype='application/json')
     return response
-#Mock Go Live
 
+
+#Mock Go Live
 @app.route('/goMockLive',methods=["POST"])
 def goMockLive():
     mock_paper_id = request.json["mock_paper_id"]
@@ -593,6 +508,7 @@ def goMockLive():
     cursor.close()
     return response
 
+#Mock Stop 
 @app.route('/finishPaper',methods=["POST"])
 def finishPaper():
     mock_paper_id = request.json["mock_paper_id"]
@@ -602,7 +518,7 @@ def finishPaper():
     response =app.response_class(response=json.dumps({"message":"Paper Finished Successfully"}),status= 200, mimetype='application/json')
     cursor.close()
     return response
-
+#Mock Rank Released and PDF
 @app.route('/releaseResult',methods=["POST"])
 def releaseResult():
     mock_paper_id = request.json["mock_paper_id"]
@@ -613,6 +529,7 @@ def releaseResult():
     cursor.close()
     return response
 
+# Check User Payment by Email
 @app.route('/checkPayment',methods=["GET"])
 def checkPayment():
     email = request.headers.get("email")
@@ -638,6 +555,7 @@ def checkPayment():
    
     return response
 
+# Settle User Payment
 @app.route('/addUserToPaymentList',methods=["POST"])
 def addUserToPaymentList():
     email = request.json["email"]
@@ -656,6 +574,8 @@ def addUserToPaymentList():
     cursor.close()
     return response
 
+
+# Get Mock Status 
 @app.route('/getLiveMockStatus',methods=["GET"])
 def getLiveMockStatus():
     cursor = mysql.connection.cursor()
@@ -669,6 +589,103 @@ def getLiveMockStatus():
     mysql.connection.commit()
     cursor.close()
     return response
+
+# Upload Question Images
+@app.route('/upload-question-image', methods=["POST"])
+def uploadQuestionImage():
+    isUpload = False
+    response = {}
+    file = request.files["file"]
+    seconds = str(time.time()).replace(".","")
+    newFile = "question-images/"+seconds + "-" + file.filename
+    uploadFileToS3(newFile, file)
+    image_url = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
+    isUpload = True
+    response["isUpload"] = isUpload
+    response["imageUrl"] = image_url
+    return json.dumps(response)
+
+# Upload Bulk Question Paper PDF Images in S3
+@app.route('/upload-image-bulk-question', methods=["POST"])
+def uploadImageBulk():
+    isUpload = False
+    imageUrl = []
+    response = {}
+    for file in request.files.getlist('file'):
+        seconds = str(time.time()).replace(".","")
+        newFile = "question_paper_pdf/"+seconds + "-" + file.filename
+        image_url = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
+        uploadFileToS3(newFile,file)
+        imageUrl.append(image_url)
+        isUpload = True
+    response["isUpload"] = isUpload
+    response["imageUrl"] = imageUrl
+    return json.dumps(response)
+
+# Dump Bulk Question Paper PDF Images Urls to DB
+@app.route('/dump-question-images', methods=["POST"])
+def dumpImages():
+    response = {}
+    images = request.json["images"]
+    mock_paper_id = request.json["mock_paper_id"]
+    for image in images:
+        cursor = mysql.connection.cursor()
+        cursor.execute("""INSERT into questions_paper_pdf(mock_paper_id, question_image_url) values(%s,%s)""", [mock_paper_id,image])
+        mysql.connection.commit()
+        cursor.close()
+    response["isUpload"] = True
+    return json.dumps(response)
+
+# Upload Answer Key PDF Images in S3
+@app.route('/upload-image-answer', methods=["POST"])
+def uploadImageAnswerKey():
+    isUpload = False
+    file = request.files["file"]
+    response = {}
+    seconds = str(time.time()).replace(".","")
+    newFile = "answer_key_pdf/"+seconds + "-" + file.filename
+    image_url = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
+    uploadFileToS3(newFile,file)
+    isUpload = True
+    response["isUpload"] = isUpload
+    response["imageUrl"] = image_url
+    return json.dumps(response)
+
+# Dump Answer PDF Images Urls to DB
+@app.route('/dump-images-answer', methods=["POST"])
+def dumpImagesAnswerKey():
+    response = {}
+    images = request.json["images"]
+    mock_paper_id = request.json["mock_paper_id"]
+    isUpload = False
+    for image in images:
+        cursor = mysql.connection.cursor()
+        cursor.execute("""INSERT into questions_paper_pdf(mock_paper_id, question_image_url) values(%s,%s)""", [mock_paper_id,image])
+        mysql.connection.commit()
+        cursor.close()
+        print(image)
+    response["isUpload"] = isUpload
+    return json.dumps(response)
+
+# Get Mock Paper List for Non Exist PDF for Question Paper
+@app.route('/getMockPaperForQuestion', methods=["GET"])
+def getMockPaperQuestion():
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select id, mock_paper_name from mock_paper where id not in(select distinct(mock_paper_id) from questions_paper_pdf )""")
+    result = cursor.fetchall()
+    mysql.connection.commit()
+    cursor.close()
+    return json.dumps({"result":result})
+
+# Get Mock Paper List for Non Exist PDF for Answer Key
+@app.route('/getMockPaperForAnswer', methods=["GET"])
+def getMockPaperAnswer():
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select id, mock_paper_name from mock_paper where id not in(select distinct(mock_paper_id) from answer_key_pdf )""")
+    result = cursor.fetchall()
+    mysql.connection.commit()
+    cursor.close()
+    return json.dumps(result)
 
 
 
@@ -742,8 +759,6 @@ def getOnlyLiveTest():
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Live Paper Details", "live_mock_paper":mock_paper}),status= 200, mimetype='application/json')
     return response
-
-
 
 # Get Questions 
 @app.route('/getQuestions/<int:id>',methods=["GET"])
@@ -828,7 +843,7 @@ def postMockResponse():
 
         cursor.execute(""" select answer from mock_questions where paper_id = (%s) order by id asc limit %s """,[mock_paper_id,total_questions])
         answers = cursor.fetchall()
-        
+
         for answer in answers:
             if responses[i] != "":
                 print(responses[i], answer)
@@ -931,6 +946,7 @@ def getMockResponse():
     response =app.response_class(response=json.dumps({"message":"Responses Available", "questions":questions_data,"user_response":temp_response,"isValid":True}),status= 200, mimetype='application/json')
     return response
 
+# Get Rank List 
 @app.route('/getRankMockPaper',methods=["GET"])
 def getRankMockPaper():
     mock_paper_id = request.headers.get("mock_paper_id")
@@ -942,7 +958,7 @@ def getRankMockPaper():
     response =app.response_class(response=json.dumps({"message":"Responses Available", "questions":ranks, "isValid":True}),status= 200, mimetype='application/json')
     return response
 
-    
+# Get Mock Time
 @app.route('/getMockPaperTime',methods=["GET"])
 def getMockPaperTime():
     mock_paper_id = request.headers.get("mock_paper_id")
@@ -954,6 +970,7 @@ def getMockPaperTime():
     response =app.response_class(response=json.dumps({"message":"Time Available", "paper_time":paper_time["paper_time"], "isValid":True}),status= 200, mimetype='application/json')
     return response
 
+# Check Test Attempted
 @app.route('/checkTestAttempted',methods=["GET"])
 def checkTestAttempted():
     user_id = request.headers.get("user_id")
@@ -971,6 +988,7 @@ def checkTestAttempted():
     response =app.response_class(response=json.dumps({"message":"Check Mock Submitted", "isValid":isValid}),status= 200, mimetype='application/json')
     return response   
 
+# Check Paid User or Not
 @app.route('/checkValidUser',methods=["GET"])
 def checkPaidUser():
     user_id = request.headers.get("user_id")
@@ -985,7 +1003,7 @@ def checkPaidUser():
     response =app.response_class(response=json.dumps({"message":"Check Paid User", "isValid":isValid}),status= 200, mimetype='application/json')
     return response   
 
-
+# For Demo Test
 @app.route('/demoTest',methods=["GET"])
 def demoTest():
     user_id = request.headers.get("user_id")
@@ -1000,8 +1018,17 @@ def demoTest():
     response =app.response_class(response=json.dumps({"message":"Demo data are", "isValid":isValid}),status= 200, mimetype='application/json')
     return response   
 
-
-
+# Get User List wrt Mock Paper
+@app.route('/getUserListMock',methods=["GET"])
+def getUserListMock():
+    mock_paper_id = request.headers.get("mock_paper_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select us.id as user_id, us.firstname user_firstname, us.lastname as user_lastname,us.email as user_email, ms.total_marks as marks, ms.accuracy as accuracy, ms.paper_time_taken as paper_time from mock_submissions ms join users us on ms.user_id = us.id where ms.mock_paper_id = (%s) order by ms.total_marks desc, ms.accuracy desc, ms.paper_time_taken asc""",[mock_paper_id])
+    user_list = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Demo data are", "user_list":user_list}),status= 200, mimetype='application/json')
+    return response   
 
 if __name__ == "__main__":
     app.run(debug="True", host="0.0.0.0", port=5000)
