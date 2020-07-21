@@ -287,7 +287,19 @@ def getMockPaperPdfImages():
     result = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
-    return json.dumps(result)
+    data_arr = []
+    temp_dict = {}
+    for data in result:
+        temp1 =  data["question_image_url"].split('.')
+        temp2 = int(temp1[-2][-2:])
+        print(temp2)
+        temp_dict[temp2] = data["question_image_url"]
+
+    for i in sorted (temp_dict.keys()):
+        result_dict = {}
+        result_dict["question_image_url"] = temp_dict[i]
+        data_arr.append(result_dict)
+    return json.dumps(data_arr)
 
 
 # Get Mock Paper PDF Images(Answer Key)
@@ -659,14 +671,11 @@ def dumpImagesAnswerKey():
     response = {}
     images = request.json["images"]
     mock_paper_id = request.json["mock_paper_id"]
-    isUpload = False
-    for image in images:
-        cursor = mysql.connection.cursor()
-        cursor.execute("""INSERT into questions_paper_pdf(mock_paper_id, question_image_url) values(%s,%s)""", [mock_paper_id,image])
-        mysql.connection.commit()
-        cursor.close()
-        print(image)
-    response["isUpload"] = isUpload
+    cursor = mysql.connection.cursor()
+    cursor.execute("""INSERT into answer_key_pdf(mock_paper_id, answer_image_url) values(%s,%s)""", [mock_paper_id,images])
+    mysql.connection.commit()
+    cursor.close()
+    response["isUpload"] = True
     return json.dumps(response)
 
 # Get Mock Paper List for Non Exist PDF for Question Paper
@@ -687,7 +696,7 @@ def getMockPaperAnswer():
     result = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
-    return json.dumps(result)
+    return json.dumps({"result":result})
 
 # Get User List wrt Mock Paper
 @app.route('/getUserListMock',methods=["GET"])
