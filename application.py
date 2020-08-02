@@ -1204,7 +1204,7 @@ def isUserRegisterCourse(user_id):
     return response
 
 # Get Profile Details
-@app.route('/userDetails/<int:user_id>', methods=["GET"])
+@app.route('/course/userDetails/<int:user_id>', methods=["GET"])
 def getUserDetailsCourse(user_id):
     cursor = mysql.connection.cursor()
     cursor.execute("""SELECT cu.*, cp.package_name as courses  FROM course_users cu left join course_package cp on cu.course = cp.id where cu.id=(%s)""", [user_id])
