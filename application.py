@@ -1327,7 +1327,7 @@ def getAllUsersCourse():
     cursor = mysql.connection.cursor()
     cursor.execute(""" select * from course_users order by id desc limit 20 offset %s """,[offset])
     result = cursor.fetchall()
-    cursor.execute(""" select count(*) as total from users""")
+    cursor.execute(""" select count(*) as total from course_users""")
     total = cursor.fetchone()
     mysql.connection.commit()
     cursor.close()
@@ -1376,6 +1376,18 @@ def disputeOrdersCourse():
     response =app.response_class(response=json.dumps({"message":"Users data are", "order_data":result}),status= 200, mimetype='application/json')
     return response
 
+#Disputed Users
+@app.route('/course/disputeOrdersById',methods=["GET"])
+def disputeOrderByIdCourse():
+    initiate_id = request.headers.get("initiate_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select cu.firstname, cu.lastname, cu.email, coi.user_id, coi.id, coi.order_id, coi.package_id, coi.price, coi.initiate_at from course_order_initiates coi left join course_users cu on coi.user_id = cu.id where coi.id =(%s)""",[initiate_id])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Users data are", "order_data":result}),status= 200, mimetype='application/json')
+    return response
+
 # Resolve Orders
 @app.route('/course/resolveOrder',methods=["POST"])
 def resolveOrderCourse():
@@ -1394,12 +1406,24 @@ def resolveOrderCourse():
 # Delete Orders
 @app.route('/course/deleteDisputeOrder',methods=["DELETE"])
 def deleteDisputeOrderCourse():
-    initiate_id = request.json["initiate_id"]
+    initiate_id = request.headers.get("initiate_id")
     cursor = mysql.connection.cursor()
     cursor.execute(""" delete from course_order_initiates where id =(%s)""",[initiate_id])
     mysql.connection.commit()
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Successfully Deleted", "isValid":True}),status= 200, mimetype='application/json')
+    return response
+
+# Get Profile Details
+@app.route('/course/userDetails', methods=["GET"])
+def getUserDetailsCourseByAdmin():
+    user_id = request.headers.get("user_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT cu.*, cp.package_name as course_name,coh.*  FROM course_users cu left join course_package cp on cu.course = cp.id left join course_order_history coh on coh.user_id = cu.id where cu.id=(%s)""", [user_id])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"User details exist","user_data":result}),status= 200, mimetype='application/json')
     return response
 
 
