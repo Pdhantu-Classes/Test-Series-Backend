@@ -1461,17 +1461,6 @@ def dumpQuestions():
 
 
 # Get Mock Questions
-@app.route('/getQuestionsByPaperId', methods=["GET"])
-# def getMockQuestionsByPaperId():
-#     mock_paper_id = request.headers.get("mock_paper_id")
-#     cursor = mysql.connection.cursor()
-#     cursor.execute("""SELECT * from mock_questions where paper_id = (%s)""", [mock_paper_id])
-#     result = cursor.fetchall()
-#     mysql.connection.commit()
-#     cursor.close()
-#     response =app.response_class(response=json.dumps({"message":"Mock Questions are","question_list":result}),status= 200, mimetype='application/json')
-#     return response
-
 @app.route('/getQuestionsByPaperId',methods=["GET"])
 def getMockQuestionsByPaperId():
     questions_data = []
@@ -1519,8 +1508,6 @@ def getMockQuestionsByPaperId():
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Questions data are", "questions":questions_data}),status= 200, mimetype='application/json')
     return response
-
-
 
 # Get Mock Questions
 @app.route('/getQuestionsById', methods=["GET"])
