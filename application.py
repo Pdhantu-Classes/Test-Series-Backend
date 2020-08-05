@@ -917,7 +917,7 @@ def getMockResponse():
         if result["options_english"]:
             temp_data["options_english"] = result["options_english"].split('$')
         else:
-            temp_data["options_english"] = ["","","","",""]
+            temp_data["options_english"] = ["","","",""]
 
         if result["question_hindi"]:
             temp_data["question_hindi"] = result["question_hindi"]
@@ -927,7 +927,7 @@ def getMockResponse():
         if result["options_hindi"]:
             temp_data["options_hindi"] = result["options_hindi"].split('$')
         else:
-            temp_data["options_hindi"] = ["","","","",""]
+            temp_data["options_hindi"] = ["","","",""]
 
         if result["extras_question"]:
             temp_data["extras_question"] = result["extras_question"].split('$')
@@ -1462,15 +1462,65 @@ def dumpQuestions():
 
 # Get Mock Questions
 @app.route('/getQuestionsByPaperId', methods=["GET"])
+# def getMockQuestionsByPaperId():
+#     mock_paper_id = request.headers.get("mock_paper_id")
+#     cursor = mysql.connection.cursor()
+#     cursor.execute("""SELECT * from mock_questions where paper_id = (%s)""", [mock_paper_id])
+#     result = cursor.fetchall()
+#     mysql.connection.commit()
+#     cursor.close()
+#     response =app.response_class(response=json.dumps({"message":"Mock Questions are","question_list":result}),status= 200, mimetype='application/json')
+#     return response
+
+@app.route('/getQuestionsByPaperId',methods=["GET"])
 def getMockQuestionsByPaperId():
+    questions_data = []
     mock_paper_id = request.headers.get("mock_paper_id")
     cursor = mysql.connection.cursor()
-    cursor.execute("""SELECT * from mock_questions where paper_id = (%s)""", [mock_paper_id])
-    result = cursor.fetchall()
+    cursor.execute(""" select * from mock_questions where paper_id = (%s) order by id asc""",[mock_paper_id])
+    results = cursor.fetchall()
+    for result in results:
+        temp_data = {}
+        temp_data["id"] = result["id"]
+
+        if result["question_english"]:
+            temp_data["question_english"] = result["question_english"].split('$')
+        else:
+            temp_data["question_english"] = ""
+
+        if result["options_english"]:
+            temp_data["options_english"] = result["options_english"].split('$')
+        else:
+            temp_data["options_english"] = ["","","",""]
+
+        if result["question_hindi"]:
+            temp_data["question_hindi"] = result["question_hindi"].split('$')
+        else:
+            temp_data["question_hindi"] = ""
+
+        if result["options_hindi"]:
+            temp_data["options_hindi"] = result["options_hindi"].split('$')
+        else:
+            temp_data["options_hindi"] = ["","","",""]
+        
+        if result["extras_question"]:
+            temp_data["extras_question"] = result["extras_question"].split('$')
+        else:
+            temp_data["extras_question"] = []
+
+        if result["extras_option"]:
+            temp_data["extras_option"] = result["extras_option"].split('$')
+        else:
+            temp_data["extras_option"] = []
+        temp_data["question_type"] = result["question_type"]
+        temp_data["answer"] = result["answer"]
+        questions_data.append(temp_data)
     mysql.connection.commit()
     cursor.close()
-    response =app.response_class(response=json.dumps({"message":"Mock Questions are","question_list":result}),status= 200, mimetype='application/json')
+    response =app.response_class(response=json.dumps({"message":"Questions data are", "questions":questions_data}),status= 200, mimetype='application/json')
     return response
+
+
 
 # Get Mock Questions
 @app.route('/getQuestionsById', methods=["GET"])
