@@ -1096,7 +1096,7 @@ def userLoginCourse():
             encoded_jwt = jwt.encode({"user_id": user_data["id"], "firstname": user_data["firstname"],"lastname":user_data["lastname"],"mobile":user_data["mobile"],
                                       "email": user_data["email"], "role": user_data["role"],"module": user_data["module"]}, 'secretkey', algorithm='HS256').decode("utf-8")
             response = app.response_class(response=json.dumps(
-                {"message": "Login Success", "isValid": True, "token": encoded_jwt, "image_url": user_data["image_url"]}), status=200, mimetype='application/json')
+                {"message": "Login Success", "isValid": True, "token": encoded_jwt, "course": user_data["course"], "image_url": user_data["image_url"]}), status=200, mimetype='application/json')
             return response
         else:
             response = app.response_class(response=json.dumps(
