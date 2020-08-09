@@ -1572,6 +1572,16 @@ def deleteQuestionById():
     response =app.response_class(response=json.dumps({"message":"Successfully Deleted", "isValid":True}),status= 200, mimetype='application/json')
     return response
 
+# Delete Question
+@app.route('/deleteQuestionsByPaperId',methods=["DELETE"])
+def deleteQuestionByPaperId():
+    mock_paper_id = request.headers.get("mock_paper_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" delete from mock_questions where paper_id =(%s)""",[mock_paper_id])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Successfully Deleted", "isValid":True}),status= 200, mimetype='application/json')
+    return response
 
 if __name__ == "__main__":
     app.run(debug="True", host="0.0.0.0", port=5000)
