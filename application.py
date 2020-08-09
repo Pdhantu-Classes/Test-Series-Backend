@@ -38,8 +38,8 @@ RAZORPAY_SECRET = 'YqklWxoyHIc1s9boGOL94Z4B'
 MYSQL_HOST = 'database-pdhantu.cqa6f6gkxqbj.us-east-2.rds.amazonaws.com'
 MYSQL_USER = 'root'
 MYSQL_PASSWORD = 'root_123'
-# MYSQL_DB = 'pdhantu-dev'
-MYSQL_DB = 'pdhantu-prod'
+MYSQL_DB = 'pdhantu-dev'
+# MYSQL_DB = 'pdhantu-prod'
 MYSQL_CURSORCLASS = 'DictCursor'
 
 
