@@ -38,8 +38,8 @@ RAZORPAY_SECRET = 'YqklWxoyHIc1s9boGOL94Z4B'
 MYSQL_HOST = 'database-pdhantu.cqa6f6gkxqbj.us-east-2.rds.amazonaws.com'
 MYSQL_USER = 'root'
 MYSQL_PASSWORD = 'root_123'
-# MYSQL_DB = 'pdhantu-dev'
-MYSQL_DB = 'pdhantu-prod'
+MYSQL_DB = 'pdhantu-dev'
+# MYSQL_DB = 'pdhantu-prod'
 MYSQL_CURSORCLASS = 'DictCursor'
 
 
@@ -1050,6 +1050,7 @@ def signUpCourse():
     email = request.json['email']
     password = request.json['password']
     mobile = request.json['mobile']
+    batch = 1
     created_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
     flag = False
     password_salt = generate_salt()
@@ -1067,8 +1068,8 @@ def signUpCourse():
         return response
     else:
         cursor.execute(
-            """INSERT INTO course_users (firstname, lastname, email, mobile, password_hash, password_salt, sign_up_method, is_active, role, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """, (
-                firstname, lastname, email, mobile, password_hash, password_salt, "NORMAL", True, "USER", created_at)
+            """INSERT INTO course_users (firstname, lastname, email, mobile, password_hash, password_salt, sign_up_method, is_active, role, created_at, batch) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """, (
+                firstname, lastname, email, mobile, password_hash, password_salt, "NORMAL", True, "USER", created_at, batch)
         )
         mysql.connection.commit()
         cursor.close()
@@ -1572,6 +1573,8 @@ def deleteQuestionById():
     response =app.response_class(response=json.dumps({"message":"Successfully Deleted", "isValid":True}),status= 200, mimetype='application/json')
     return response
 
+
+
 # Delete Question
 @app.route('/deleteQuestionsByPaperId',methods=["DELETE"])
 def deleteQuestionByPaperId():
@@ -1582,6 +1585,22 @@ def deleteQuestionByPaperId():
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Successfully Deleted", "isValid":True}),status= 200, mimetype='application/json')
     return response
+
+
+# Upload Question Images
+@app.route('/upload-pdf', methods=["POST"])
+def uploadQuestionPdf():
+    isUpload = False
+    response = {}
+    file = request.files["study_pdf"]
+    seconds = str(time.time()).replace(".","")
+    newFile = "material_pdf/"+seconds + "-" + file.filename
+    uploadFileToS3(newFile, file)
+    image_url = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
+    isUpload = True
+    response["isUpload"] = isUpload
+    response["imageUrl"] = image_url
+    return json.dumps(response)
 
 if __name__ == "__main__":
     app.run(debug="True", host="0.0.0.0", port=5000)
