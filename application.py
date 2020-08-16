@@ -1631,30 +1631,59 @@ def getTopicsCourse():
     response =app.response_class(response=json.dumps({"message":"Records Available", "topics":result, "subjectDetails":subject}),status= 200, mimetype='application/json')
     return response
 
-# Add Video & Pdf 
-@app.route('/course/addTopicsPdf', methods=["POST"])
-def addTopicsPdfCourse():
+# Add Videos 
+@app.route('/course/addTopicVideos', methods=["POST"])
+def addTopicVideos():
+    course_id = request.json["course_id"]
+    subject_id = request.json["subject_id"]
+    video_url_link = request.json["video_url_link"]
+    topics = request.json["topics"]
+    created_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
+    cursor = mysql.connection.cursor()
+    # print(course_id,subject_id,topics,video_url_link,created_at)
+    if int(course_id) == 1 or int(course_id) == 3:
+        cursor.execute(""" insert into course_video_lacture(course_id,subject_id,topics,video_url_link,upload_date) values(%s,%s,%s,%s,%s)""",[course_id,subject_id,topics,video_url_link,created_at])
+        cursor.execute(""" insert into course_video_lacture(course_id,subject_id,topics,video_url_link,upload_date) values(%s,%s,%s,%s,%s)""",[2,subject_id,topics,video_url_link,created_at])
+    else:
+        cursor.execute(""" insert into course_video_lacture(course_id,subject_id,topics,video_url_link,upload_date) values(%s,%s,%s,%s,%s)""",[course_id,subject_id,topics,video_url_link,created_at])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Added Successfully"}),status= 200, mimetype='application/json')
+    return response
+
+# Upload Topic Pdf
+@app.route('/course/uploadTopicPdf', methods=["POST"])
+def uploadTopicPdf():
+    topic_id = request.headers.get("topic_id")
     course_id = request.headers.get("course_id")
-    subject_id = request.headers.get("subject_id")
-    video_url_link = request.headers.get("video_url_link")
-    topics = request.headers.get("topics")
     file = request.files["study_pdf"]
     seconds = str(time.time()).replace(".","")
     newFile = "material_pdf/"+seconds + "-" + file.filename
     uploadFileToS3(newFile, file)
     pdf_file = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
-    created_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
     cursor = mysql.connection.cursor()
-    print(course_id,subject_id,topics,video_url_link,pdf_file,created_at)
+    cursor.execute("""select * from course_video_lacture where id=(%s)""",[topic_id])
+    result = cursor.fetchone()
     if int(course_id) == 1 or int(course_id) == 3:
-        cursor.execute(""" insert into course_video_lacture(course_id,subject_id,topics,video_url_link,pdf_url_link,upload_date) values(%s,%s,%s,%s,%s,%s)""",[course_id,subject_id,topics,video_url_link,pdf_file,created_at])
-        cursor.execute(""" insert into course_video_lacture(course_id,subject_id,topics,video_url_link,pdf_url_link,upload_date) values(%s,%s,%s,%s,%s,%s)""",[2,subject_id,topics,video_url_link,pdf_file,created_at])
+        cursor.execute("""UPDATE course_video_lacture SET pdf_url_link =(%s) where subject_id=(%s) and topics=(%s) and upload_date=(%s)""", [pdf_file,result["subject_id"],result["topics"], result["upload_date"]])
     else:
-        cursor.execute(""" insert into course_video_lacture(course_id,subject_id,topics,video_url_link,pdf_url_link,upload_date) values(%s,%s,%s,%s,%s,%s)""",[course_id,subject_id,topics,video_url_link,pdf_file,created_at])
+        cursor.execute("""UPDATE course_video_lacture SET pdf_url_link =(%s) where id=(%s) """,[pdf_file,topic_id])
     mysql.connection.commit()
     cursor.close()
-    response =app.response_class(response=json.dumps({"message":"Added Successfully"}),status= 200, mimetype='application/json')
+    response =app.response_class(response=json.dumps({"message":"Uploaded Successfully"}),status= 200, mimetype='application/json')
     return response
+
+#Paid Users
+@app.route('/course/paidUserLists',methods=["GET"])
+def getPaidUsersLists():
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select u.*, o.*,cp.* from course_users u join course_order_history o on u.id = o.user_id inner join course_package cp on cp.id = u.course order by u.course asc""")
+    result = cursor.fetchall()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Users data are", "user_data":result }),status= 200, mimetype='application/json')
+    return response
+
 
 
 if __name__ == "__main__":
