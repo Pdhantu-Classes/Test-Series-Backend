@@ -26,12 +26,12 @@ ACCESS_SECRET_KEY = 'ad0OInOORJYA1qpbCHyoJjzJ/6GDFjGCHF5UUnwd'
 BUCKET_NAME = 'pdhantu-classes'
 
 # Test Razor Pay Credential
-# RAZORPAY_KEY = 'rzp_test_x8I5D7s72Z0kOk'
-# RAZORPAY_SECRET = 'IsPwjbGZx9vojbrA95vVoXzd'
+RAZORPAY_KEY = 'rzp_test_x8I5D7s72Z0kOk'
+RAZORPAY_SECRET = 'IsPwjbGZx9vojbrA95vVoXzd'
 
 # Live  Razor Pay Credential
-RAZORPAY_KEY = 'rzp_live_dG54e74x2QdKcw'
-RAZORPAY_SECRET = 'YqklWxoyHIc1s9boGOL94Z4B'
+# RAZORPAY_KEY = 'rzp_live_dG54e74x2QdKcw'
+# RAZORPAY_SECRET = 'YqklWxoyHIc1s9boGOL94Z4B'
 
 
 # Database Credential Development
@@ -1042,6 +1042,165 @@ def demoTest():
     return response
 
 
+
+@app.route('/dumpQuestionsExcelfile', methods=["POST"])
+def dumpQuestions():
+    excel_file = request.files['excel_file']
+    prefix_file = str(time.time()).replace(".","")[:11]
+    new_name_file = prefix_file + "-" + excel_file.filename
+    excel_file.save(new_name_file)
+    book = xlrd.open_workbook(new_name_file)
+    sheet = book.sheet_by_index(0)
+    cursor = mysql.connection.cursor()
+    query = """INSERT INTO mock_questions(paper_id, question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
+    for r in range(1, sheet.nrows):
+        paper_id = sheet.cell(r,0).value
+        question_english = sheet.cell(r,1).value
+        options_english = sheet.cell(r,2).value
+        answer =  sheet.cell(r,3).value
+        question_hindi = sheet.cell(r,4).value
+        options_hindi = sheet.cell(r,5).value
+        extras_question = sheet.cell(r,6).value
+        extras_option = sheet.cell(r,7).value
+        question_type = sheet.cell(r,8).value
+
+        values = (paper_id, question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type)     
+        print(values)
+        cursor.execute(query, values)
+
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Sucessfully Uploaded"}),status= 200, mimetype='application/json')
+    return response
+
+
+# Get Mock Questions
+@app.route('/getQuestionsByPaperId',methods=["GET"])
+def getMockQuestionsByPaperId():
+    questions_data = []
+    mock_paper_id = request.headers.get("mock_paper_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from mock_questions where paper_id = (%s) order by id asc""",[mock_paper_id])
+    results = cursor.fetchall()
+    for result in results:
+        temp_data = {}
+        temp_data["id"] = result["id"]
+
+        if result["question_english"]:
+            temp_data["question_english"] = result["question_english"].split('$')
+        else:
+            temp_data["question_english"] = ""
+
+        if result["options_english"]:
+            temp_data["options_english"] = result["options_english"].split('$')
+        else:
+            temp_data["options_english"] = ["","","",""]
+
+        if result["question_hindi"]:
+            temp_data["question_hindi"] = result["question_hindi"].split('$')
+        else:
+            temp_data["question_hindi"] = ""
+
+        if result["options_hindi"]:
+            temp_data["options_hindi"] = result["options_hindi"].split('$')
+        else:
+            temp_data["options_hindi"] = ["","","",""]
+        
+        if result["extras_question"]:
+            temp_data["extras_question"] = result["extras_question"].split('$')
+        else:
+            temp_data["extras_question"] = []
+
+        if result["extras_option"]:
+            temp_data["extras_option"] = result["extras_option"].split('$')
+        else:
+            temp_data["extras_option"] = []
+        temp_data["question_type"] = result["question_type"]
+        temp_data["answer"] = result["answer"]
+        questions_data.append(temp_data)
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Questions data are", "questions":questions_data}),status= 200, mimetype='application/json')
+    return response
+
+# Get Mock Questions
+@app.route('/getQuestionsById', methods=["GET"])
+def getMockQuestionsById():
+    questions_id = request.headers.get("questions_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT * from mock_questions where id = (%s)""", [questions_id])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Mock Questions details","question_list":result}),status= 200, mimetype='application/json')
+    return response
+
+# Add Mock Question
+@app.route('/addQuestionToPaper', methods=["POST"])
+def addQuestionToPaper():
+    mock_paper_id = request.json["mock_paper_id"]
+    question_english = request.json["question_english"]
+    options_english = request.json["options_english"]
+    question_hindi = request.json["question_hindi"]
+    options_hindi = request.json["options_hindi"]
+    answer =  request.json["answer"]
+    extras_question = request.json["extras_question"]
+    extras_option = request.json["extras_option"]
+    question_type = request.json["question_type"]
+
+    cursor = mysql.connection.cursor()
+    cursor.execute("""INSERT INTO mock_questions(paper_id, question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)""", [mock_paper_id,question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Successfully Added"}),status= 200, mimetype='application/json')
+    return response
+
+# Edit Mock Questions
+@app.route('/editQuestionsById', methods=["PUT"])
+def editQuestionsById():
+    questions_id = request.json["questions_id"]
+    question_english = request.json["question_english"]
+    options_english = request.json["options_english"]
+    question_hindi = request.json["question_hindi"]
+    options_hindi = request.json["options_hindi"]
+    answer =  request.json["answer"]
+    extras_question = request.json["extras_question"]
+    extras_option = request.json["extras_option"]
+    question_type = request.json["question_type"]
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" update mock_questions set question_english=(%s), options_english=(%s), question_hindi=(%s), options_hindi=(%s),answer=(%s),extras_question=(%s),extras_option=(%s), question_type=(%s) where id=(%s) """, [question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type, questions_id])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"SuccessfullgetMockQuestionsByIdy Updated"}),status= 200, mimetype='application/json')
+    return response
+
+# Delete Question
+@app.route('/deleteQuestionById',methods=["DELETE"])
+def deleteQuestionById():
+    question_id = request.headers.get("question_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" delete from mock_questions where id =(%s)""",[question_id])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Successfully Deleted", "isValid":True}),status= 200, mimetype='application/json')
+    return response
+
+
+
+# Delete Question
+@app.route('/deleteQuestionsByPaperId',methods=["DELETE"])
+def deleteQuestionByPaperId():
+    mock_paper_id = request.headers.get("mock_paper_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" delete from mock_questions where paper_id =(%s)""",[mock_paper_id])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Successfully Deleted", "isValid":True}),status= 200, mimetype='application/json')
+    return response
+
+#################################### Course ###########################################
+
 # SignUp
 @app.route('/course/signup', methods=['POST'])
 def signUpCourse():
@@ -1050,6 +1209,7 @@ def signUpCourse():
     email = request.json['email']
     password = request.json['password']
     mobile = request.json['mobile']
+    batch = 1
     created_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
     flag = False
     password_salt = generate_salt()
@@ -1067,8 +1227,8 @@ def signUpCourse():
         return response
     else:
         cursor.execute(
-            """INSERT INTO course_users (firstname, lastname, email, mobile, password_hash, password_salt, sign_up_method, is_active, role, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """, (
-                firstname, lastname, email, mobile, password_hash, password_salt, "NORMAL", True, "USER", created_at)
+            """INSERT INTO course_users (firstname, lastname, email, mobile, password_hash, password_salt, sign_up_method, is_active, role, created_at, batch) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """, (
+                firstname, lastname, email, mobile, password_hash, password_salt, "NORMAL", True, "USER", created_at, batch)
         )
         mysql.connection.commit()
         cursor.close()
@@ -1428,160 +1588,74 @@ def getUserDetailsCourseByAdmin():
     return response
 
 
+# Upload Question Images
+@app.route('/upload-pdf', methods=["POST"])
+def uploadQuestionPdf():
+    isUpload = False
+    response = {}
+    file = request.files["study_pdf"]
+    seconds = str(time.time()).replace(".","")
+    newFile = "material_pdf/"+seconds + "-" + file.filename
+    uploadFileToS3(newFile, file)
+    image_url = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
+    isUpload = True
+    response["isUpload"] = isUpload
+    response["imageUrl"] = image_url
+    return json.dumps(response)
 
-@app.route('/dumpQuestionsExcelfile', methods=["POST"])
-def dumpQuestions():
-    excel_file = request.files['excel_file']
-    prefix_file = str(time.time()).replace(".","")[:11]
-    new_name_file = prefix_file + "-" + excel_file.filename
-    excel_file.save(new_name_file)
-    book = xlrd.open_workbook(new_name_file)
-    sheet = book.sheet_by_index(0)
+# Get Subjects 
+@app.route('/course/getSubjects', methods=["GET"])
+def getSubjectsCourse():
+    paper_id = request.headers.get("paper_id")
     cursor = mysql.connection.cursor()
-    query = """INSERT INTO mock_questions(paper_id, question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
-    for r in range(1, sheet.nrows):
-        paper_id = sheet.cell(r,0).value
-        question_english = sheet.cell(r,1).value
-        options_english = sheet.cell(r,2).value
-        answer =  sheet.cell(r,3).value
-        question_hindi = sheet.cell(r,4).value
-        options_hindi = sheet.cell(r,5).value
-        extras_question = sheet.cell(r,6).value
-        extras_option = sheet.cell(r,7).value
-        question_type = sheet.cell(r,8).value
-
-        values = (paper_id, question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type)     
-        print(values)
-        cursor.execute(query, values)
-
+    cursor.execute(""" select * from course_subjects where paper_id =(%s)""",[paper_id])
+    result = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
-    response =app.response_class(response=json.dumps({"message":"Sucessfully Uploaded"}),status= 200, mimetype='application/json')
+    response =app.response_class(response=json.dumps({"message":"Records Available", "subjects":result}),status= 200, mimetype='application/json')
     return response
 
 
-# Get Mock Questions
-@app.route('/getQuestionsByPaperId',methods=["GET"])
-def getMockQuestionsByPaperId():
-    questions_data = []
-    mock_paper_id = request.headers.get("mock_paper_id")
+# Get Video & Pdf 
+@app.route('/course/getTopics', methods=["GET"])
+def getTopicsCourse():
+    course_id = request.headers.get("course_id")
+    subject_id = request.headers.get("subject_id")
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select * from mock_questions where paper_id = (%s) order by id asc""",[mock_paper_id])
-    results = cursor.fetchall()
-    for result in results:
-        temp_data = {}
-        temp_data["id"] = result["id"]
-
-        if result["question_english"]:
-            temp_data["question_english"] = result["question_english"].split('$')
-        else:
-            temp_data["question_english"] = ""
-
-        if result["options_english"]:
-            temp_data["options_english"] = result["options_english"].split('$')
-        else:
-            temp_data["options_english"] = ["","","",""]
-
-        if result["question_hindi"]:
-            temp_data["question_hindi"] = result["question_hindi"].split('$')
-        else:
-            temp_data["question_hindi"] = ""
-
-        if result["options_hindi"]:
-            temp_data["options_hindi"] = result["options_hindi"].split('$')
-        else:
-            temp_data["options_hindi"] = ["","","",""]
-        
-        if result["extras_question"]:
-            temp_data["extras_question"] = result["extras_question"].split('$')
-        else:
-            temp_data["extras_question"] = []
-
-        if result["extras_option"]:
-            temp_data["extras_option"] = result["extras_option"].split('$')
-        else:
-            temp_data["extras_option"] = []
-        temp_data["question_type"] = result["question_type"]
-        temp_data["answer"] = result["answer"]
-        questions_data.append(temp_data)
+    cursor.execute(""" select * from course_video_lacture where course_id =(%s) and subject_id = (%s) order by id desc""",[course_id,subject_id])
+    result = cursor.fetchall()
+    cursor.execute(""" select * from course_subjects where id = (%s)""",[subject_id])
+    subject = cursor.fetchone()
     mysql.connection.commit()
     cursor.close()
-    response =app.response_class(response=json.dumps({"message":"Questions data are", "questions":questions_data}),status= 200, mimetype='application/json')
+    response =app.response_class(response=json.dumps({"message":"Records Available", "topics":result, "subjectDetails":subject}),status= 200, mimetype='application/json')
     return response
 
-# Get Mock Questions
-@app.route('/getQuestionsById', methods=["GET"])
-def getMockQuestionsById():
-    questions_id = request.headers.get("questions_id")
+# Add Video & Pdf 
+@app.route('/course/addTopicsPdf', methods=["POST"])
+def addTopicsPdfCourse():
+    course_id = request.headers.get("course_id")
+    subject_id = request.headers.get("subject_id")
+    video_url_link = request.headers.get("video_url_link")
+    topics = request.headers.get("topics")
+    file = request.files["study_pdf"]
+    seconds = str(time.time()).replace(".","")
+    newFile = "material_pdf/"+seconds + "-" + file.filename
+    uploadFileToS3(newFile, file)
+    pdf_file = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
+    created_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
     cursor = mysql.connection.cursor()
-    cursor.execute("""SELECT * from mock_questions where id = (%s)""", [questions_id])
-    result = cursor.fetchone()
+    print(course_id,subject_id,topics,video_url_link,pdf_file,created_at)
+    if int(course_id) == 1 or int(course_id) == 3:
+        cursor.execute(""" insert into course_video_lacture(course_id,subject_id,topics,video_url_link,pdf_url_link,upload_date) values(%s,%s,%s,%s,%s,%s)""",[course_id,subject_id,topics,video_url_link,pdf_file,created_at])
+        cursor.execute(""" insert into course_video_lacture(course_id,subject_id,topics,video_url_link,pdf_url_link,upload_date) values(%s,%s,%s,%s,%s,%s)""",[2,subject_id,topics,video_url_link,pdf_file,created_at])
+    else:
+        cursor.execute(""" insert into course_video_lacture(course_id,subject_id,topics,video_url_link,pdf_url_link,upload_date) values(%s,%s,%s,%s,%s,%s)""",[course_id,subject_id,topics,video_url_link,pdf_file,created_at])
     mysql.connection.commit()
     cursor.close()
-    response =app.response_class(response=json.dumps({"message":"Mock Questions details","question_list":result}),status= 200, mimetype='application/json')
+    response =app.response_class(response=json.dumps({"message":"Added Successfully"}),status= 200, mimetype='application/json')
     return response
 
-# Add Mock Question
-@app.route('/addQuestionToPaper', methods=["POST"])
-def addQuestionToPaper():
-    mock_paper_id = request.json["mock_paper_id"]
-    question_english = request.json["question_english"]
-    options_english = request.json["options_english"]
-    question_hindi = request.json["question_hindi"]
-    options_hindi = request.json["options_hindi"]
-    answer =  request.json["answer"]
-    extras_question = request.json["extras_question"]
-    extras_option = request.json["extras_option"]
-    question_type = request.json["question_type"]
-
-    cursor = mysql.connection.cursor()
-    cursor.execute("""INSERT INTO mock_questions(paper_id, question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)""", [mock_paper_id,question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type])
-    mysql.connection.commit()
-    cursor.close()
-    response =app.response_class(response=json.dumps({"message":"Successfully Added"}),status= 200, mimetype='application/json')
-    return response
-
-# Edit Mock Questions
-@app.route('/editQuestionsById', methods=["PUT"])
-def editQuestionsById():
-    questions_id = request.json["questions_id"]
-    question_english = request.json["question_english"]
-    options_english = request.json["options_english"]
-    question_hindi = request.json["question_hindi"]
-    options_hindi = request.json["options_hindi"]
-    answer =  request.json["answer"]
-    extras_question = request.json["extras_question"]
-    extras_option = request.json["extras_option"]
-    question_type = request.json["question_type"]
-
-    cursor = mysql.connection.cursor()
-    cursor.execute(""" update mock_questions set question_english=(%s), options_english=(%s), question_hindi=(%s), options_hindi=(%s),answer=(%s),extras_question=(%s),extras_option=(%s), question_type=(%s) where id=(%s) """, [question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type, questions_id])
-    mysql.connection.commit()
-    cursor.close()
-    response =app.response_class(response=json.dumps({"message":"SuccessfullgetMockQuestionsByIdy Updated"}),status= 200, mimetype='application/json')
-    return response
-
-# Delete Question
-@app.route('/deleteQuestionById',methods=["DELETE"])
-def deleteQuestionById():
-    question_id = request.headers.get("question_id")
-    cursor = mysql.connection.cursor()
-    cursor.execute(""" delete from mock_questions where id =(%s)""",[question_id])
-    mysql.connection.commit()
-    cursor.close()
-    response =app.response_class(response=json.dumps({"message":"Successfully Deleted", "isValid":True}),status= 200, mimetype='application/json')
-    return response
-
-# Delete Question
-@app.route('/deleteQuestionsByPaperId',methods=["DELETE"])
-def deleteQuestionByPaperId():
-    mock_paper_id = request.headers.get("mock_paper_id")
-    cursor = mysql.connection.cursor()
-    cursor.execute(""" delete from mock_questions where paper_id =(%s)""",[mock_paper_id])
-    mysql.connection.commit()
-    cursor.close()
-    response =app.response_class(response=json.dumps({"message":"Successfully Deleted", "isValid":True}),status= 200, mimetype='application/json')
-    return response
 
 if __name__ == "__main__":
     app.run(debug="True", host="0.0.0.0", port=5000)
