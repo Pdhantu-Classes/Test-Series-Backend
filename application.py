@@ -1684,6 +1684,16 @@ def getPaidUsersLists():
     response =app.response_class(response=json.dumps({"message":"Users data are", "user_data":result }),status= 200, mimetype='application/json')
     return response
 
+@app.route('/course/checkMedium',methods=["GET"])
+def checkMedium():
+    user_id = request.headers.get("user_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select medium from course_users where id=(%s)""",[user_id])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Users data are", "medium":result["medium"] }),status= 200, mimetype='application/json')
+    return response
 
 
 if __name__ == "__main__":
