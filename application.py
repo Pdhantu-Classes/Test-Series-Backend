@@ -1677,7 +1677,7 @@ def uploadTopicPdf():
 @app.route('/course/paidUserLists',methods=["GET"])
 def getPaidUsersLists():
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select u.*, o.*,cp.* from course_users u join course_order_history o on u.id = o.user_id inner join course_package cp on cp.id = u.course order by u.course asc""")
+    cursor.execute(""" select u.*, o.* from course_users u inner join course_order_history o on u.id = o.user_id  order by u.id desc""")
     result = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
