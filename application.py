@@ -26,20 +26,20 @@ ACCESS_SECRET_KEY = 'ad0OInOORJYA1qpbCHyoJjzJ/6GDFjGCHF5UUnwd'
 BUCKET_NAME = 'pdhantu-classes'
 
 # Test Razor Pay Credential
-# RAZORPAY_KEY = 'rzp_test_x8I5D7s72Z0kOk'
-# RAZORPAY_SECRET = 'IsPwjbGZx9vojbrA95vVoXzd'
+RAZORPAY_KEY = 'rzp_test_x8I5D7s72Z0kOk'
+RAZORPAY_SECRET = 'IsPwjbGZx9vojbrA95vVoXzd'
 
 # Live  Razor Pay Credential
-RAZORPAY_KEY = 'rzp_live_dG54e74x2QdKcw'
-RAZORPAY_SECRET = 'YqklWxoyHIc1s9boGOL94Z4B'
+# RAZORPAY_KEY = 'rzp_live_dG54e74x2QdKcw'
+# RAZORPAY_SECRET = 'YqklWxoyHIc1s9boGOL94Z4B'
 
 
 # Database Credential Development
 MYSQL_HOST = 'database-pdhantu.cqa6f6gkxqbj.us-east-2.rds.amazonaws.com'
 MYSQL_USER = 'root'
 MYSQL_PASSWORD = 'root_123'
-# MYSQL_DB = 'pdhantu-dev'
-MYSQL_DB = 'pdhantu-prod'
+MYSQL_DB = 'pdhantu-dev'
+# MYSQL_DB = 'pdhantu-prod'
 MYSQL_CURSORCLASS = 'DictCursor'
 
 
@@ -1677,7 +1677,7 @@ def uploadTopicPdf():
 @app.route('/course/paidUserLists',methods=["GET"])
 def getPaidUsersLists():
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select u.*, o.* from course_users u inner join course_order_history o on u.id = o.user_id  order by u.id asc""")
+    cursor.execute(""" select u.*, o.* from course_users u inner join course_order_history o on u.id = o.user_id  order by o.id asc""")
     result = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
