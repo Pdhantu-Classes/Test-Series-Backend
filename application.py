@@ -38,8 +38,8 @@ RAZORPAY_SECRET = 'YqklWxoyHIc1s9boGOL94Z4B'
 MYSQL_HOST = 'database-pdhantu.cqa6f6gkxqbj.us-east-2.rds.amazonaws.com'
 MYSQL_USER = 'root'
 MYSQL_PASSWORD = 'root_123'
-MYSQL_DB = 'pdhantu-dev'
-# MYSQL_DB = 'pdhantu-prod'
+# MYSQL_DB = 'pdhantu-dev'
+MYSQL_DB = 'pdhantu-prod'
 MYSQL_CURSORCLASS = 'DictCursor'
 
 
@@ -2123,7 +2123,7 @@ def inactiveCurrentAffairs():
 @app.route('/getNoticeAll',methods=["GET"])
 def getNotice():
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select * from notice """)
+    cursor.execute(""" select * from notice order by id desc""")
     result = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
@@ -2143,7 +2143,7 @@ def getNoticeActivate():
 @app.route('/getCurrentAffairsAll',methods=["GET"])
 def getCurrentAffairsAll():
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select * from current_affairs""")
+    cursor.execute(""" select * from current_affairs order by id desc""")
     result = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
