@@ -740,6 +740,7 @@ def getAllMockPaper():
         temp_dict["is_active"] = mock_p["is_active"]
         temp_dict["is_finished"] = mock_p["is_finished"]
         temp_dict["is_result_released"] = mock_p["is_result_released"]
+        temp_dict["paper_pdf"] = mock_p["paper_pdf"]
         temp_dict["is_attempted"] = is_attempted
         temp_dict["is_live_attempted"] = is_live_attempted
         mock_paper_data.append(temp_dict)
