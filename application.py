@@ -2084,8 +2084,9 @@ def editQuestionsByIdPrelims():
 @app.route('/postNotice',methods=["POST"])
 def postNotice():
     notice = request.json["notice"]
+    link = request.json["link"]
     cursor = mysql.connection.cursor()
-    cursor.execute(""" insert into notice(notice) values(%s)""",[notice])
+    cursor.execute(""" insert into notice(notice, link) values(%s,%s)""",[notice, link])
     mysql.connection.commit()
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Uploaded Successfully"}),status= 200, mimetype='application/json')
@@ -2094,8 +2095,9 @@ def postNotice():
 @app.route('/postCurrentAffairs',methods=["POST"])
 def postCurrentAffairs():
     current_affairs = request.json["current_affairs"]
+    link = request.json["link"]
     cursor = mysql.connection.cursor()
-    cursor.execute(""" insert into current_affairs(current_affairs) values(%s)""",[current_affairs])
+    cursor.execute(""" insert into current_affairs(current_affairs, link) values(%s,%s)""",[current_affairs, link])
     mysql.connection.commit()
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Uploaded Successfully"}),status= 200, mimetype='application/json')
