@@ -1476,9 +1476,13 @@ def adminDashboardCourse():
     prelims = cursor.fetchone()
     cursor.execute(""" select count(*) as total from course_users where course = 2""")
     mains = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 3""")
+    mains_hindi = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 4""")
+    mains_english = cursor.fetchone()
     mysql.connection.commit()
     cursor.close()
-    response =app.response_class(response=json.dumps({"message":"Users data are:", "total_user":total["total"], "paid_user": paid['total'], "prelims":prelims["total"], "mains":mains["total"] }),status= 200, mimetype='application/json')
+    response =app.response_class(response=json.dumps({"message":"Users data are:", "total_user":total["total"], "paid_user": paid['total'], "prelims":prelims["total"], "mains":mains["total"], "mains_hindi":mains_hindi["total"], "mains_english":mains_english["total"]}),status= 200, mimetype='application/json')
     return response
 
 #All Users
@@ -1705,8 +1709,9 @@ def addClassTestPrelims():
     topic_name = request.json["topic_name"]
     no_of_questions = request.json["no_of_questions"]
     paper_time = request.json["paper_time"]
+    paper_date = request.json["paper_date"]
     cursor = mysql.connection.cursor()
-    cursor.execute(""" insert into course_test_paper_prelims(batch_id, subject_name, topic_name, no_of_questions, paper_time) values(%s,%s,%s,%s)""",[batch_id, subject_name, topic_name, no_of_questions, paper_time])
+    cursor.execute(""" insert into course_test_paper_prelims(batch_id, subject_name, topic_name, no_of_questions, paper_time, paper_date) values(%s,%s,%s,%s,%s,%s)""",[batch_id, subject_name, topic_name, no_of_questions, paper_time, paper_date])
     mysql.connection.commit()
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Uploaded Successfully"}),status= 200, mimetype='application/json')
@@ -1776,6 +1781,86 @@ def dumpQuestionClassTestPrelims():
     response =app.response_class(response=json.dumps({"message":"Sucessfully Uploaded"}),status= 200, mimetype='application/json')
     return response
 
+# Get Class Test Questions Prelims Admin
+@app.route('/course/getQuestionsByTestIdPrelims',methods=["GET"])
+def getQuestionsByTestIdPrelims():
+    questions_data = []
+    test_paper_id = request.headers.get("test_paper_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from course_test_paper_questions_prelims where paper_id = (%s) order by id asc""",[test_paper_id])
+    results = cursor.fetchall()
+    for result in results:
+        temp_data = {}
+        temp_data["id"] = result["id"]
+
+        if result["question_english"]:
+            temp_data["question_english"] = result["question_english"].split('$')
+        else:
+            temp_data["question_english"] = ""
+
+        if result["options_english"]:
+            temp_data["options_english"] = result["options_english"].split('$')
+        else:
+            temp_data["options_english"] = ["","","",""]
+
+        if result["question_hindi"]:
+            temp_data["question_hindi"] = result["question_hindi"].split('$')
+        else:
+            temp_data["question_hindi"] = ""
+
+        if result["options_hindi"]:
+            temp_data["options_hindi"] = result["options_hindi"].split('$')
+        else:
+            temp_data["options_hindi"] = ["","","",""]
+        
+        if result["extras_question"]:
+            temp_data["extras_question"] = result["extras_question"].split('$')
+        else:
+            temp_data["extras_question"] = []
+
+        if result["extras_option"]:
+            temp_data["extras_option"] = result["extras_option"].split('$')
+        else:
+            temp_data["extras_option"] = []
+        temp_data["question_type"] = result["question_type"]
+        temp_data["answer"] = result["answer"]
+        questions_data.append(temp_data)
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Questions data are", "questions":questions_data}),status= 200, mimetype='application/json')
+    return response
+
+# Get Class Test Question Prelims Admin
+@app.route('/course/getQuestionsByIdPrelims', methods=["GET"])
+def getQuestionsByIdPrelims():
+    questions_id = request.headers.get("questions_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT * from course_test_paper_questions_prelims where id = (%s)""", [questions_id])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Test Questions details","question_list":result}),status= 200, mimetype='application/json')
+    return response
+
+# Edit Class Test Questions Admin
+@app.route('/course/editQuestionsByIdPrelims', methods=["PUT"])
+def editQuestionsByIdPrelims():
+    questions_id = request.json["questions_id"]
+    question_english = request.json["question_english"]
+    options_english = request.json["options_english"]
+    question_hindi = request.json["question_hindi"]
+    options_hindi = request.json["options_hindi"]
+    answer =  request.json["answer"]
+    extras_question = request.json["extras_question"]
+    extras_option = request.json["extras_option"]
+    question_type = request.json["question_type"]
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" update course_test_paper_questions_prelims set question_english=(%s), options_english=(%s), question_hindi=(%s), options_hindi=(%s),answer=(%s),extras_question=(%s),extras_option=(%s), question_type=(%s) where id=(%s) """, [question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type, questions_id])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"SuccessfullgetMockQuestionsByIdy Updated"}),status= 200, mimetype='application/json')
+    return response
 
 # Get All Test Tesr Paper with Status Prelims User
 @app.route('/course/getAllClassTestPrelims',methods=["GET"])
@@ -1795,10 +1880,11 @@ def getAllClassTestPrelims():
                 is_attempted = user_s["is_attempted"]
                 break
         temp_dict["id"] = test_p["id"]
-        temp_dict["subject_name"] = test_p["mock_paper_name"]
-        temp_dict["topic_name"] = test_p["mock_description"]
+        temp_dict["subject_name"] = test_p["subject_name"]
+        temp_dict["topic_name"] = test_p["topic_name"]
         temp_dict["no_of_questions"] = test_p["no_of_questions"]
         temp_dict["paper_date"] = test_p["paper_date"]
+        temp_dict["paper_time"] = test_p["paper_time"]
         temp_dict["is_active"] = test_p["is_active"]
         temp_dict["is_rank_released"] = test_p["is_rank_released"]
         temp_dict["is_attempted"] = is_attempted
@@ -1808,6 +1894,22 @@ def getAllClassTestPrelims():
     response =app.response_class(response=json.dumps({"message":"Test Papers are", "test_paper":test_paper_data}),status= 200, mimetype='application/json')
     return response
 
+# Check Test Attempted
+@app.route('/course/checkClassTestAttempted',methods=["GET"])
+def checkClassTestAttempted():
+    user_id = request.headers.get("user_id")
+    test_paper_id = request.headers.get("test_paper_id")
+    isValid = True
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select id from course_test_paper_submissions_prelims where test_paper_id = (%s) and user_id = (%s)""", [test_paper_id,user_id])
+    is_submission = cursor.fetchone()
+    if is_submission:
+        isValid = False
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Check Class Test Submitted", "isValid":isValid}),status= 200, mimetype='application/json')
+    return response   
+
 
 # Get Class Test Questions Prelims
 @app.route('/course/getQuestionsClassTest/<int:id>',methods=["GET"])
@@ -1816,7 +1918,7 @@ def getQuestionsClassTest(id):
     cursor = mysql.connection.cursor()
     cursor.execute(""" select no_of_questions from course_test_paper_prelims where id = (%s) """,[id])
     questions = cursor.fetchone()
-    cursor.execute(""" select * from course_test_paper_questions_prelims where paper_id = (%s) order by id asc limit %s """,[id,questions["total_questions"]])
+    cursor.execute(""" select * from course_test_paper_questions_prelims where paper_id = (%s) order by id asc limit %s """,[id,questions["no_of_questions"]])
     results = cursor.fetchall()
     for result in results:
         temp_data = {}
@@ -1895,7 +1997,6 @@ def postResponseClassTestPrelims():
 
         for answer in answers:
             if responses[i] != "":
-                print(responses[i], answer)
                 if answer["answer"].lower() == responses[i]:
                     correct += 1
                 else:
@@ -1911,7 +2012,7 @@ def postResponseClassTestPrelims():
         percentage = int(round((correct / int(total_questions)), 2)*100)
 
         # print(total_marks, accuracy, attempted, not_attempted, total_questions, correct, incorrect, paper_time_taken, user_id,percentage, test_paper_id, test_response, submission_at)
-        cursor.execute("""insert into course_test_paper_submissions_prelims (user_id, test_paper_id, responses, total_questions, correct, incorrect, attempted, not_attempted, total_marks, accuracy, paper_time_taken, percentage, submission_at) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",[user_id,mock_paper_id,test_response,total_questions,correct,incorrect,attempted,not_attempted,total_marks,accuracy,paper_time_taken, percentage, submission_at])
+        cursor.execute("""insert into course_test_paper_submissions_prelims (user_id, test_paper_id, responses, total_questions, correct, incorrect, attempted, not_attempted, total_marks, accuracy, paper_time_taken, percentage, submission_at) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",[user_id,test_paper_id,test_response,total_questions,correct,incorrect,attempted,not_attempted,total_marks,accuracy,paper_time_taken, percentage, submission_at])
         mysql.connection.commit()
         cursor.close()
         response =app.response_class(response=json.dumps({"message":"Response Submitted"}),status= 200, mimetype='application/json')
@@ -1975,7 +2076,7 @@ def getResponsesClassTestPrelims():
     if responses:
         temp_response["id"] = responses["id"]
         temp_response["user_id"] = responses["user_id"]
-        temp_response["mock_paper_id"] = responses["mock_paper_id"]
+        temp_response["test_paper_id"] = responses["test_paper_id"]
         temp_response["responses"] = responses["responses"].split(',')
         temp_response["total_questions"] = responses["total_questions"]
         temp_response["correct"] = responses["correct"]
@@ -1996,88 +2097,39 @@ def getResponsesClassTestPrelims():
     return response
 
 
-# Get Class Test Questions Prelims
-@app.route('/course/getQuestionsByTestIdPrelims',methods=["GET"])
-def getQuestionsByTestIdPrelims():
-    questions_data = []
+# Get Rank List 
+@app.route('/course/getRankMockPaper',methods=["GET"])
+def getRankClassTestPaper():
     test_paper_id = request.headers.get("test_paper_id")
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select * from course_test_paper_questions_prelims where paper_id = (%s) order by id asc""",[test_paper_id])
-    results = cursor.fetchall()
-    for result in results:
-        temp_data = {}
-        temp_data["id"] = result["id"]
-
-        if result["question_english"]:
-            temp_data["question_english"] = result["question_english"].split('$')
-        else:
-            temp_data["question_english"] = ""
-
-        if result["options_english"]:
-            temp_data["options_english"] = result["options_english"].split('$')
-        else:
-            temp_data["options_english"] = ["","","",""]
-
-        if result["question_hindi"]:
-            temp_data["question_hindi"] = result["question_hindi"].split('$')
-        else:
-            temp_data["question_hindi"] = ""
-
-        if result["options_hindi"]:
-            temp_data["options_hindi"] = result["options_hindi"].split('$')
-        else:
-            temp_data["options_hindi"] = ["","","",""]
-        
-        if result["extras_question"]:
-            temp_data["extras_question"] = result["extras_question"].split('$')
-        else:
-            temp_data["extras_question"] = []
-
-        if result["extras_option"]:
-            temp_data["extras_option"] = result["extras_option"].split('$')
-        else:
-            temp_data["extras_option"] = []
-        temp_data["question_type"] = result["question_type"]
-        temp_data["answer"] = result["answer"]
-        questions_data.append(temp_data)
+    cursor.execute(""" select us.id as user_id, us.firstname as user_firstname, us.lastname as user_lastname,us.email as user_email, ms.total_marks as marks, ms.accuracy as accuracy, ms.paper_time_taken as paper_time from course_test_paper_submissions_prelims ms join course_users us on ms.user_id = us.id where ms.test_paper_id = (%s) order by ms.total_marks desc, ms.accuracy desc, ms.paper_time_taken asc""",[test_paper_id])
+    ranks = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
-    response =app.response_class(response=json.dumps({"message":"Questions data are", "questions":questions_data}),status= 200, mimetype='application/json')
+    response =app.response_class(response=json.dumps({"message":"Responses Available", "ranks":ranks, "isValid":True}),status= 200, mimetype='application/json')
     return response
 
-# Get Class Test Question Prelims
-@app.route('/course/getQuestionsByIdPrelims', methods=["GET"])
-def getQuestionsByIdPrelims():
-    questions_id = request.headers.get("questions_id")
+# Get Users List 
+@app.route('/course/allUsersList',methods=["GET"])
+def allUsersListCourse():
     cursor = mysql.connection.cursor()
-    cursor.execute("""SELECT * from course_test_paper_questions_prelims where id = (%s)""", [questions_id])
-    result = cursor.fetchone()
+    cursor.execute(""" select id, firstname, lastname, email, mobile from course_users""")
+    allUsers = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
-    response =app.response_class(response=json.dumps({"message":"Test Questions details","question_list":result}),status= 200, mimetype='application/json')
+    response =app.response_class(response=json.dumps({"message":"Responses Available", "allUsers":allUsers, "isValid":True}),status= 200, mimetype='application/json')
     return response
 
-# Edit Mock Questions
-@app.route('/course/editQuestionsByIdPrelims', methods=["PUT"])
-def editQuestionsByIdPrelims():
-    questions_id = request.json["questions_id"]
-    question_english = request.json["question_english"]
-    options_english = request.json["options_english"]
-    question_hindi = request.json["question_hindi"]
-    options_hindi = request.json["options_hindi"]
-    answer =  request.json["answer"]
-    extras_question = request.json["extras_question"]
-    extras_option = request.json["extras_option"]
-    question_type = request.json["question_type"]
-
+# Get Users List 
+@app.route('/allUsersList',methods=["GET"])
+def allUsersList():
     cursor = mysql.connection.cursor()
-    cursor.execute(""" update course_test_paper_questions_prelims set question_english=(%s), options_english=(%s), question_hindi=(%s), options_hindi=(%s),answer=(%s),extras_question=(%s),extras_option=(%s), question_type=(%s) where id=(%s) """, [question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type, questions_id])
+    cursor.execute(""" select id, firstname, lastname, email, mobile from users""")
+    allUsers = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
-    response =app.response_class(response=json.dumps({"message":"SuccessfullgetMockQuestionsByIdy Updated"}),status= 200, mimetype='application/json')
+    response =app.response_class(response=json.dumps({"message":"Responses Available", "allUsers":allUsers, "isValid":True}),status= 200, mimetype='application/json')
     return response
-
-
 
 ############################## Website Service #################################
 
@@ -2162,6 +2214,7 @@ def getCurrentAffairsActive():
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Updated Successfully","currentAffairsData": result}),status= 200, mimetype='application/json')
     return response
+
 
 if __name__ == "__main__":
     app.run(debug="True", host="0.0.0.0", port=5000)
