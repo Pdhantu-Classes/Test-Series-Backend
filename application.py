@@ -1210,7 +1210,7 @@ def signUpCourse():
     email = request.json['email']
     password = request.json['password']
     mobile = request.json['mobile']
-    batch = 1
+    batch = 2
     created_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
     flag = False
     password_salt = generate_salt()
@@ -1480,9 +1480,13 @@ def adminDashboardCourse():
     mains_hindi = cursor.fetchone()
     cursor.execute(""" select count(*) as total from course_users where course = 4""")
     mains_english = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where batch = 1""")
+    batch_1 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where batch = 2""")
+    batch_2 = cursor.fetchone()
     mysql.connection.commit()
     cursor.close()
-    response =app.response_class(response=json.dumps({"message":"Users data are:", "total_user":total["total"], "paid_user": paid['total'], "prelims":prelims["total"], "mains":mains["total"], "mains_hindi":mains_hindi["total"], "mains_english":mains_english["total"]}),status= 200, mimetype='application/json')
+    response =app.response_class(response=json.dumps({"message":"Users data are:", "total_user":total["total"], "paid_user": paid['total'], "prelims":prelims["total"], "mains":mains["total"], "mains_hindi":mains_hindi["total"], "mains_english":mains_english["total"], "batch_1": batch_1["total"], "batch_2": batch_2["total"]}),status= 200, mimetype='application/json')
     return response
 
 #All Users
@@ -2120,6 +2124,18 @@ def allUsersListCourse():
     response =app.response_class(response=json.dumps({"message":"Responses Available", "allUsers":allUsers, "isValid":True}),status= 200, mimetype='application/json')
     return response
 
+@app.route('/course/getStudentBatch',methods=["GET"])
+def getStudentBatch():
+    user_id = request.headers.get("user_id")
+    print(user_id)
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select batch from course_users where id = (%s)""",[user_id])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Batch Available","batch": result["batch"]}),status= 200, mimetype='application/json')
+    return response
+
 # Get Users List 
 @app.route('/allUsersList',methods=["GET"])
 def allUsersList():
@@ -2214,7 +2230,6 @@ def getCurrentAffairsActive():
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Updated Successfully","currentAffairsData": result}),status= 200, mimetype='application/json')
     return response
-
 
 if __name__ == "__main__":
     app.run(debug="True", host="0.0.0.0", port=5000)
