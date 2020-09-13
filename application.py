@@ -1470,23 +1470,47 @@ def adminDashboardCourse():
     cursor = mysql.connection.cursor()
     cursor.execute(""" select count(*) as total from course_users""")
     total = cursor.fetchone()
-    cursor.execute(""" select count(*) as total from course_users u join course_order_history o on u.id = o.user_id""")
-    paid = cursor.fetchone()
-    cursor.execute(""" select count(*) as total from course_users where course = 1""")
-    prelims = cursor.fetchone()
-    cursor.execute(""" select count(*) as total from course_users where course = 2""")
-    mains = cursor.fetchone()
-    cursor.execute(""" select count(*) as total from course_users where course = 3""")
-    mains_hindi = cursor.fetchone()
-    cursor.execute(""" select count(*) as total from course_users where course = 4""")
-    mains_english = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users u join course_order_history o on u.id = o.user_id where u.batch = 1""")
+    paid_batch1 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 1 and batch = 1""")
+    prelims_batch1 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 2 and batch = 1""")
+    mains_batch1 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 3 and batch = 1""")
+    mains_hindi_batch1 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 4 and batch = 1""")
+    mains_english_batch1 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users u join course_order_history o on u.id = o.user_id where u.batch = 2""")
+    paid_batch2 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 1 and batch = 2""")
+    prelims_batch2 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 2 and batch = 2""")
+    mains_batch2 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 3 and batch = 2""")
+    mains_hindi_batch2 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 4 and batch = 2""")
+    mains_english_batch2 = cursor.fetchone()
     cursor.execute(""" select count(*) as total from course_users where batch = 1""")
     batch_1 = cursor.fetchone()
     cursor.execute(""" select count(*) as total from course_users where batch = 2""")
     batch_2 = cursor.fetchone()
     mysql.connection.commit()
     cursor.close()
-    response =app.response_class(response=json.dumps({"message":"Users data are:", "total_user":total["total"], "paid_user": paid['total'], "prelims":prelims["total"], "mains":mains["total"], "mains_hindi":mains_hindi["total"], "mains_english":mains_english["total"], "batch_1": batch_1["total"], "batch_2": batch_2["total"]}),status= 200, mimetype='application/json')
+    response =app.response_class(response=json.dumps({"message":"Users data are:", 
+        "total_user":total["total"], 
+        "paid_user_batch1": paid_batch1['total'], 
+        "prelims_batch1":prelims_batch1["total"], 
+        "mains_batch1":mains_batch1["total"], 
+        "mains_hindi_batch1":mains_hindi_batch1["total"], 
+        "mains_english_batch1":mains_english_batch1["total"],
+        "paid_user_batch2": paid_batch2['total'], 
+        "prelims_batch2":prelims_batch2["total"], 
+        "mains_batch2":mains_batch2["total"], 
+        "mains_hindi_batch2":mains_hindi_batch2["total"], 
+        "mains_english_batch2":mains_english_batch2["total"], 
+        "batch_1": batch_1["total"], 
+        "batch_2": batch_2["total"]
+        }),status= 200, mimetype='application/json')
     return response
 
 #All Users
@@ -1630,8 +1654,28 @@ def getSubjectsCourse():
 def getTopicsCourse():
     course_id = request.headers.get("course_id")
     subject_id = request.headers.get("subject_id")
+    batch = request.headers.get("batch")
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select * from course_video_lacture where course_id =(%s) and subject_id = (%s) order by id desc""",[course_id,subject_id])
+    cursor.execute(""" select * from course_video_lacture where course_id =(%s) and subject_id = (%s) and batch_id=(%s) order by id desc""",[course_id, subject_id, batch])
+    result = cursor.fetchall()
+    cursor.execute(""" select * from course_subjects where id = (%s)""",[subject_id])
+    subject = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Records Available", "topics":result, "subjectDetails":subject}),status= 200, mimetype='application/json')
+    return response
+
+
+# Get Video & Pdf 
+@app.route('/course/getTopicsUsers', methods=["GET"])
+def getTopicsCourseUsers():
+    course_id = request.headers.get("course_id")
+    subject_id = request.headers.get("subject_id")
+    user_id = request.headers.get("user_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select batch from course_users where id = (%s)""",[user_id])
+    result = cursor.fetchone()
+    cursor.execute(""" select * from course_video_lacture where course_id =(%s) and subject_id = (%s) and batch_id=(%s) order by id desc""",[course_id, subject_id,result["batch"]])
     result = cursor.fetchall()
     cursor.execute(""" select * from course_subjects where id = (%s)""",[subject_id])
     subject = cursor.fetchone()
@@ -1647,14 +1691,15 @@ def addTopicVideos():
     subject_id = request.json["subject_id"]
     video_url_link = request.json["video_url_link"]
     topics = request.json["topics"]
+    batch =  request.json["batch"]
     created_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
     cursor = mysql.connection.cursor()
     # print(course_id,subject_id,topics,video_url_link,created_at)
     if int(course_id) == 1 or int(course_id) == 3:
-        cursor.execute(""" insert into course_video_lacture(course_id,subject_id,topics,video_url_link,upload_date) values(%s,%s,%s,%s,%s)""",[course_id,subject_id,topics,video_url_link,created_at])
-        cursor.execute(""" insert into course_video_lacture(course_id,subject_id,topics,video_url_link,upload_date) values(%s,%s,%s,%s,%s)""",[2,subject_id,topics,video_url_link,created_at])
+        cursor.execute(""" insert into course_video_lacture(course_id,subject_id,topics,video_url_link,upload_date,batch_id) values(%s,%s,%s,%s,%s,%s)""",[course_id,subject_id,topics,video_url_link,created_at,batch])
+        cursor.execute(""" insert into course_video_lacture(course_id,subject_id,topics,video_url_link,upload_date,batch_id) values(%s,%s,%s,%s,%s,%s)""",[2,subject_id,topics,video_url_link,created_at,batch])
     else:
-        cursor.execute(""" insert into course_video_lacture(course_id,subject_id,topics,video_url_link,upload_date) values(%s,%s,%s,%s,%s)""",[course_id,subject_id,topics,video_url_link,created_at])
+        cursor.execute(""" insert into course_video_lacture(course_id,subject_id,topics,video_url_link,upload_date,batch_id) values(%s,%s,%s,%s,%s,%s)""",[course_id,subject_id,topics,video_url_link,created_at,batch])
     mysql.connection.commit()
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Added Successfully"}),status= 200, mimetype='application/json')
@@ -1685,8 +1730,9 @@ def uploadTopicPdf():
 #Paid Users
 @app.route('/course/paidUserLists',methods=["GET"])
 def getPaidUsersLists():
+    batch = request.headers.get("batch")
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select u.*, o.* from course_users u inner join course_order_history o on u.id = o.user_id  order by o.id asc""")
+    cursor.execute(""" select u.*, o.* from course_users u inner join course_order_history o on u.id = o.user_id where u.batch = (%s) order by o.id asc""", [batch])
     result = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
@@ -1714,8 +1760,9 @@ def addClassTestPrelims():
     no_of_questions = request.json["no_of_questions"]
     paper_time = request.json["paper_time"]
     paper_date = request.json["paper_date"]
+    batch = request.json["batch"]
     cursor = mysql.connection.cursor()
-    cursor.execute(""" insert into course_test_paper_prelims(batch_id, subject_name, topic_name, no_of_questions, paper_time, paper_date) values(%s,%s,%s,%s,%s,%s)""",[batch_id, subject_name, topic_name, no_of_questions, paper_time, paper_date])
+    cursor.execute(""" insert into course_test_paper_prelims(batch_id, subject_name, topic_name, no_of_questions, paper_time, paper_date, batch) values(%s,%s,%s,%s,%s,%s,%s)""",[batch_id, subject_name, topic_name, no_of_questions, paper_time, paper_date, batch])
     mysql.connection.commit()
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Uploaded Successfully"}),status= 200, mimetype='application/json')
@@ -1724,8 +1771,9 @@ def addClassTestPrelims():
 # Get All Class Test Prelims Admin
 @app.route('/course/getClassTestPrelimsAdmin',methods=["GET"])
 def getClassTestPrelimsAdmin():
+    batch = request.headers.get("batch")
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select * from course_test_paper_prelims """)
+    cursor.execute(""" select * from course_test_paper_prelims where batch = (%s) """,[batch])
     result = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
@@ -1872,7 +1920,9 @@ def getAllClassTestPrelims():
     user_id = request.headers.get("user_id")
     test_paper_data = []
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select * from course_test_paper_prelims""")
+    cursor.execute(""" select batch from course_users where id=(%s)""",[user_id])
+    result = cursor.fetchone()
+    cursor.execute(""" select * from course_test_paper_prelims where batch =(%s)""",[result["batch"]])
     test_papers = cursor.fetchall()
     cursor.execute(""" select * from course_test_paper_submissions_prelims where user_id = (%s)""",[user_id])
     user_submissions = cursor.fetchall()
@@ -2116,8 +2166,9 @@ def getRankClassTestPaper():
 # Get Users List 
 @app.route('/course/allUsersList',methods=["GET"])
 def allUsersListCourse():
+    batch = request.headers.get("batch")
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select id, firstname, lastname, email, mobile from course_users""")
+    cursor.execute(""" select id, firstname, lastname, email, mobile from course_users where batch = (%s)""", [batch])
     allUsers = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
@@ -2136,11 +2187,32 @@ def getStudentBatch():
     response =app.response_class(response=json.dumps({"message":"Batch Available","batch": result["batch"]}),status= 200, mimetype='application/json')
     return response
 
+@app.route('/course/getCurrentAffairs',methods=["GET"])
+def getCurrentAffairsCourse():
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from course_current_affairs order by id desc""")
+    result = cursor.fetchall()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Records Available","currentAffairs": result}),status= 200, mimetype='application/json')
+    return response
+
+@app.route('/course/addCurrentAffairs',methods=["POST"])
+def addCurrentAffairsCourse():
+    topics = request.json["topics"]
+    video_url_link = request.json["video_url_link"]
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" insert into course_current_affairs(topics,video_url_link) values(%s,%s)""",[topics,video_url_link])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Uploaded Successfully"}),status= 200, mimetype='application/json')
+    return response
+
 # Get Users List 
 @app.route('/allUsersList',methods=["GET"])
 def allUsersList():
     cursor = mysql.connection.cursor()
-    cursor.execute(""" select id, firstname, lastname, email, mobile from users""")
+    cursor.execute(""" select id, firstname, lastname, email, mobile from users """)
     allUsers = cursor.fetchall()
     mysql.connection.commit()
     cursor.close()
