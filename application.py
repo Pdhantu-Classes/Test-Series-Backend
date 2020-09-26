@@ -3085,6 +3085,19 @@ def getLiveMockStatusTestSeries():
     return response
 
 
+# Get User List wrt Mock Paper
+@app.route('/testseries/getUserListMock',methods=["GET"])
+def getUserListMockTestSeries():
+    mock_paper_id = request.headers.get("mock_paper_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select us.id as user_id, us.firstname user_firstname, us.lastname as user_lastname,us.email as user_email, ms.total_marks as marks, ms.accuracy as accuracy, ms.paper_time_taken as paper_time from mock_submissions ms join users us on ms.user_id = us.id where ms.mock_paper_id = (%s) order by ms.total_marks desc, ms.accuracy desc, ms.paper_time_taken asc""",[mock_paper_id])
+    user_list = cursor.fetchall()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"User List are", "user_list":user_list}),status= 200, mimetype='application/json')
+    return response   
+
+
 @app.route('/testseries/dumpQuestionsExcelfile', methods=["POST"])
 def dumpQuestionsTestSeries():
     excel_file = request.files['excel_file']
