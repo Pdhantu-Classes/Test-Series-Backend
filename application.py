@@ -2303,6 +2303,970 @@ def getCurrentAffairsActive():
     response =app.response_class(response=json.dumps({"message":"Updated Successfully","currentAffairsData": result}),status= 200, mimetype='application/json')
     return response
 
+
+
+#                                              CGPSC Test Series
+
+
+# SignUp
+@app.route('/testseries/signup', methods=['POST'])
+def signUpTestSeries():
+    firstname = request.json['firstname']
+    lastname = request.json['lastname']
+    email = request.json['email']
+    password = request.json['password']
+    mobile = request.json['mobile']
+    created_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
+    flag = False
+    password_salt = generate_salt()
+    password_hash = md5_hash(password + password_salt)
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT * FROM testseries_users""")
+    results = cursor.fetchall()
+    for item in results:
+        if str(email) == str(item["email"]):
+            flag = True
+            mysql.connection.commit()
+            cursor.close()
+    if flag == True:
+        response = app.response_class(response=json.dumps(
+            {"message": "Already Exist", "isValid": False}), status=200, mimetype='application/json')
+        return response
+    else:
+        cursor.execute(
+            """INSERT INTO testseries_users (firstname, lastname, email, mobile, password_hash, password_salt, sign_up_method, is_active, role, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """, (
+                firstname, lastname, email, mobile, password_hash, password_salt, "NORMAL", True, "USER", created_at)
+        )
+        mysql.connection.commit()
+        cursor.close()
+        response = app.response_class(response=json.dumps(
+            {"message": "Sign Up Successfully", "isValid": True}), status=200, mimetype='application/json')
+        return response
+
+
+# User Login
+@app.route('/testseries/login', methods=["POST"])
+def userLoginTestSeries():
+    email = request.json["email"]
+    password = request.json["password"]
+    isUserExist = False
+    cursor = mysql.connection.cursor()
+    cursor.execute(
+        """SELECT * FROM testseries_users where email=(%s)""", [email])
+    user_data = cursor.fetchone()
+    response = {}
+    if user_data:
+        if str(user_data["password_hash"]) == str(md5_hash(password+user_data["password_salt"])):
+            isUserExist = True
+
+        if isUserExist:
+            print(user_data)
+            encoded_jwt = jwt.encode({"user_id": user_data["id"], "firstname": user_data["firstname"],"lastname":user_data["lastname"],"mobile":user_data["mobile"],
+                                      "email": user_data["email"], "role": user_data["role"],"module": user_data["module"]}, 'secretkey', algorithm='HS256').decode("utf-8")
+            response = app.response_class(response=json.dumps({"message": "Login Success", "isValid": True, "token": encoded_jwt, "image_url": user_data["image_url"]}), status=200, mimetype='application/json')
+            return response
+        else:
+            response = app.response_class(response=json.dumps({"message": "Wrong Credential", "isValid": False}), status=200, mimetype='application/json')
+            return response
+    else:
+        response =app.response_class(response=json.dumps({"message":"User do not exists, Please sign up"}),status= 200, mimetype='application/json')
+        return response
+
+# User Forget Password
+@app.route('/testseries/forgetPassword', methods=["POST"])
+def forgetPasswordTestSeries():
+    email = request.json["email"]
+    mobile = request.json["mobile"]
+    isUserExist = False
+    cursor = mysql.connection.cursor()
+    cursor.execute(
+        """SELECT * FROM testseries_users where email=(%s) AND mobile=(%s)""", [email, mobile])
+    user_data = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    print(user_data)
+    if user_data:
+        isUserExist = True
+    if isUserExist:
+        response = app.response_class(response=json.dumps({"message": "Please Enter New Password", "isValid": True, "user_id": user_data["id"]}), status=200, mimetype='application/json')
+        return response
+    else:
+        response = app.response_class(response=json.dumps({"message": "Please Enter Valid Details", "isValid": False}), status=200, mimetype='application/json')
+        return response
+
+# User Change Password
+@app.route('/testseries/changePassword', methods=["PUT"])
+def changePasswordTestSeries():
+    user_id = request.json["user_id"]
+    password = request.json["password"]
+    password_salt = generate_salt()
+    password_hash = md5_hash(password + password_salt)
+    cursor = mysql.connection.cursor()
+    cursor.execute("""UPDATE testseries_users SET password_hash = (%s), password_salt = (%s) where id = (%s)""", [password_hash,password_salt,user_id])
+    mysql.connection.commit()
+    cursor.close()
+    response = app.response_class(response=json.dumps({"message": "Password Change Successfully", "isValid": True}), status=200, mimetype='application/json')
+    return response
+
+
+# Razorpay Create Order
+@app.route('/testseries/createOrder', methods=['POST'])
+def createOrderTestSeries():
+    package_id = request.json["package_id"]
+    user_id = request.json["user_id"]
+    initiate_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT package_price FROM testseries_mock_package where id=(%s)""", [package_id])
+    result = cursor.fetchone()
+    paye_id = randomString(10)
+    order_amount = int(result["package_price"]) * 100
+    order_currency = 'INR'
+    order_receipt = 'order_'+paye_id
+    cursor.execute("""INSERT into testseries_order_initiates(order_id, user_id, package_id, price, initiate_at) values(%s,%s,%s,%s,%s)""", [order_receipt, user_id ,package_id, order_amount/100, initiate_at])
+    razorId = razorpay_client.order.create(
+        amount=order_amount, currency=order_currency, receipt=order_receipt, payment_capture='1')
+    mysql.connection.commit()
+    cursor.close()
+    return json.dumps(razorId["id"])
+
+
+# Razorpay Verify Signature
+@app.route('/testseries/verifyRazorpaySucces', methods=['POST'])
+def verifyPaymentTestSeries():
+    user_id = request.json["user_id"]
+    package_id=request.json["package_id"]
+    request_order_id = request.json["order_id"]
+    request_payment_id = request.json["payment_id"]
+    request_signature = request.json["signature"]
+    is_success = False
+    order_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
+    generated_signature = hmac_sha256(request_order_id+ "|" + request_payment_id)
+    status='failure'
+    if(generated_signature == request_signature):
+        is_success=True
+        status='success'
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT package_price FROM testseries_mock_package where id=(%s)""", [package_id])
+    result = cursor.fetchone()
+    cursor.execute("""UPDATE testseries_order_initiates SET status = (%s) where user_id =(%s) and package_id=(%s)""",[status,user_id,package_id])
+    cursor.execute("""INSERT into testseries_order_history(payment_id,order_id,user_id,price,order_at,status,package_id) values(%s,%s,%s,%s,%s,%s,%s)""", [request_payment_id,request_order_id,user_id,result["package_price"],order_at,status,package_id])
+    mysql.connection.commit()
+    cursor.close()
+    return json.dumps({"isSuccess": is_success})
+
+
+# Upload Profile Image
+@app.route('/testseries/upload-image', methods=["POST"])
+def uploadImageTestSeries():
+    isUpload = False
+    response = {}
+    user_id = request.headers.get("user_id")
+    file = request.files["file"]
+    seconds = str(time.time()).replace(".","")
+    newFile = "user-images/"+seconds + "-" + file.filename
+    uploadFileToS3(newFile, file)
+    image_url = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
+    cursor = mysql.connection.cursor()
+    cursor.execute("""UPDATE testseries_users SET image_url =(%s) where id=(%s)""", [image_url,user_id])
+    mysql.connection.commit()
+    cursor.close()
+    isUpload = True
+    response["isUpload"] = isUpload
+    response["imageUrl"] = image_url
+    return json.dumps(response)
+
+
+# Check User Registered
+@app.route('/testseries/isUserRegister/<int:user_id>', methods=["GET"])
+def isUserRegisterTestSeries(user_id):
+    cursor = mysql.connection.cursor()
+    isValid = False
+    cursor.execute("""SELECT * FROM testseries_users where id=(%s)""", [user_id])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    if result["whatsapp"] and result["graduation_year"] and result["preparing_for"]:
+        isValid = True
+    response =app.response_class(response=json.dumps({"message":"User details exist","isValid":isValid, "package_id":result["preparing_for"]}),status= 200, mimetype='application/json')
+    return response
+
+
+# Get Profile Details
+@app.route('/testseries/userDetails/<int:user_id>', methods=["GET"])
+def getUserDetailsTestSeries(user_id):
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT id,firstname,lastname,email,mobile,image_url,role, whatsapp,graduation_year,preparing_for  FROM testseries_users where id=(%s)""", [user_id])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"User details exist","user_data":result}),status= 200, mimetype='application/json')
+    return response
+
+
+# Change Profile Details 
+@app.route('/testseries/userDetails/<int:user_id>', methods=["PUT"])
+def pstUserDetailsTestSeries(user_id):
+    whatsapp = request.json["whatsapp"]
+    graduation_year = request.json["graduation_year"]
+    course = request.json["course"]
+    cursor = mysql.connection.cursor()
+    cursor.execute("""UPDATE testseries_users SET whatsapp =(%s), graduation_year=(%s), preparing_for=(%s) where id=(%s)""", [whatsapp,graduation_year,course,user_id])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"User Data Added Successfully"}),status= 200, mimetype='application/json')
+    return response
+
+
+# User Order Details
+@app.route('/testseries/orderDetails/<int:user_id>', methods=["GET"])
+def getOrderDetailsTestSeries(user_id):
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT * FROM testseries_order_history where user_id =(%s) AND status ="success" """, [user_id])
+    result = cursor.fetchall()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Order Details are","order_data":result}),status= 200, mimetype='application/json')
+    return response
+
+
+# Check Package Buy or NOT
+@app.route('/testseries/isPackageBuy/<int:user_id>',methods=["GET"])
+def checkOrderDetailsTestSeries(user_id):
+    isValid = False
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT id FROM testseries_order_history where user_id =(%s) AND status ="success" limit 1""", [user_id])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    if result:
+        isValid = True
+    response =app.response_class(response=json.dumps({"isValid":isValid}),status= 200, mimetype='application/json')
+    return response
+
+
+# Get All Test Series bought by User
+@app.route('/testseries/myTestSeries/<int:user_id>',methods=["GET"])
+def myTestSeriesTestSeries(user_id):
+    isValid = False
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT id FROM testseries_order_history where user_id =(%s) AND status ="success" limit 1""", [user_id])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    if result:
+        isValid = True
+    response =app.response_class(response=json.dumps({"isValid":isValid}),status= 200, mimetype='application/json')
+    return response
+
+# Get User Test Series bought by User
+@app.route('/testseries/myTestSeriesPackage',methods=["GET"])
+def myTestSeriesPackageTestSeries():
+    user_id = request.headers.get("user_id")
+    isValid = False
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT preparing_for FROM testseries_users where id =(%s) """, [user_id])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    if result:
+        isValid = True
+    response =app.response_class(response=json.dumps({"package_id":result["preparing_for"]}),status= 200, mimetype='application/json')
+    return response
+
+
+@app.route('/testseries/getAllMockPaper',methods=["GET"])
+def getAllMockPaperTestSeries():
+    package_id = request.headers.get("package_id")
+    user_id = request.headers.get("user_id")
+    mock_paper_data = []
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from testseries_mock_paper where package_id=(%s)""", [package_id])
+    mock_papers = cursor.fetchall()
+    cursor.execute(""" select * from testseries_mock_submissions where user_id = (%s)""",[user_id])
+    user_submissions = cursor.fetchall()
+    for mock_p in mock_papers:
+        temp_dict = {}
+        is_attempted = 0
+        is_live_attempted = 0
+        for user_s in user_submissions:
+            if user_s["mock_paper_id"] == mock_p["id"]:
+                is_attempted = user_s["is_attempted"]
+                is_live_attempted = user_s["is_live_attempted"]
+                break
+        temp_dict["id"] = mock_p["id"]
+        temp_dict["mock_paper_name"] = mock_p["mock_paper_name"]
+        temp_dict["mock_description"] = mock_p["mock_description"]
+        temp_dict["paper_date"] = mock_p["paper_date"]
+        temp_dict["is_active"] = mock_p["is_active"]
+        temp_dict["is_finished"] = mock_p["is_finished"]
+        temp_dict["is_result_released"] = mock_p["is_result_released"]
+        temp_dict["paper_pdf"] = mock_p["paper_pdf"]
+        temp_dict["paper_time"] = mock_p["paper_time"]
+        temp_dict["total_questions"] = mock_p["total_questions"]
+        temp_dict["is_attempted"] = is_attempted
+        temp_dict["is_live_attempted"] = is_live_attempted
+        mock_paper_data.append(temp_dict)
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Mock Papers are", "mock_paper":mock_paper_data}),status= 200, mimetype='application/json')
+    return response
+
+
+# Get All Test Mock Paper with Status
+
+@app.route('/testseries/getMockPaperDetails',methods=["GET"])
+def getMockPaperDetailsTestSeries():
+    mock_paper_id = request.headers.get("mock_paper_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from testseries_mock_paper where id =(%s)""",[mock_paper_id])
+    mock_paper = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Mock Paper Details", "mock_paper":mock_paper}),status= 200, mimetype='application/json')
+    return response
+
+
+# Get Only Live For Home
+
+@app.route('/testseries/getOnlyLiveTest',methods=["GET"])
+def getOnlyLiveTestTestSeries():
+    user_id = request.headers.get("user_id")
+    is_attempted = 0
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from testseries_mock_paper where is_active = 0 and is_finished = 0""")
+    mock_paper = cursor.fetchone()
+    cursor.execute(""" select * from testseries_mock_submissions where user_id = (%s) and mock_paper_id = (%s)""",[user_id,mock_paper["id"]])
+    user_submissions = cursor.fetchone()
+    if user_submissions:
+        is_attempted = 1
+    mock_paper["is_attempted"] =is_attempted
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Live Paper Details", "live_mock_paper":mock_paper}),status= 200, mimetype='application/json')
+    return response
+
+# Get Questions 
+@app.route('/testseries/getQuestions/<int:id>',methods=["GET"])
+def getMockQuestionTestSeries(id):
+    questions_data = []
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select total_questions from testseries_mock_paper where id = (%s) """,[id])
+    questions = cursor.fetchone()
+    cursor.execute(""" select * from testseries_mock_questions where paper_id = (%s) order by id asc limit %s """,[id,questions["total_questions"]])
+    results = cursor.fetchall()
+    for result in results:
+        temp_data = {}
+        temp_data["id"] = result["id"]
+
+        if result["question_english"]:
+            temp_data["question_english"] = result["question_english"].split('$')
+        else:
+            temp_data["question_english"] = ""
+
+        if result["options_english"]:
+            temp_data["options_english"] = result["options_english"].split('$')
+        else:
+            temp_data["options_english"] = ["","","","",""]
+
+        if result["question_hindi"]:
+            temp_data["question_hindi"] = result["question_hindi"].split('$')
+        else:
+            temp_data["question_hindi"] = ""
+
+        if result["options_hindi"]:
+            temp_data["options_hindi"] = result["options_hindi"].split('$')
+        else:
+            temp_data["options_hindi"] = ["","","","",""]
+        
+        if result["extras_question"]:
+            temp_data["extras_question"] = result["extras_question"].split('$')
+        else:
+            temp_data["extras_question"] = []
+
+        if result["extras_option"]:
+            temp_data["extras_option"] = result["extras_option"].split('$')
+        else:
+            temp_data["extras_option"] = []
+        temp_data["question_type"] = result["question_type"]
+        questions_data.append(temp_data)
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Questions data are", "questions":questions_data}),status= 200, mimetype='application/json')
+    return response
+
+# Post Response 
+@app.route('/testseries/postResponse',methods=["POST"])
+def postMockResponseTestSeries():
+    i = 0
+    test_response = request.json["responses"]
+    responses = test_response.split(',')
+    mock_paper_id = request.json["mock_paper_id"]
+    user_id = request.json["user_id"]
+    paper_time_taken = request.json["paper_time_taken"]
+    print(mock_paper_id)
+    submission_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
+    correct = 0
+    incorrect = 0
+    total_marks = 0
+    accuracy = 0
+    attempted = 0
+    not_attempted = 0
+    total_questions = 0
+    is_live_attempted = 0
+    cursor = mysql.connection.cursor()
+
+    cursor.execute(""" select id from testseries_mock_submissions where user_id = (%s) and mock_paper_id =(%s) """,[user_id,mock_paper_id])
+    is_already_exist = cursor.fetchone()
+    
+    if is_already_exist:
+        response =app.response_class(response=json.dumps({"message":"Response Submitted"}),status= 200, mimetype='application/json')
+    else:
+        cursor.execute(""" select total_questions,is_active from testseries_mock_paper where id = (%s) """,[mock_paper_id])
+        questions = cursor.fetchone()
+        total_questions = questions["total_questions"]
+        is_live_attempted = questions["is_active"]
+
+        cursor.execute(""" select answer from testseries_mock_questions where paper_id = (%s) order by id asc limit %s """,[mock_paper_id,total_questions])
+        answers = cursor.fetchall()
+
+        for answer in answers:
+            if responses[i] != "":
+                print(responses[i], answer)
+                if answer["answer"].lower() == responses[i]:
+                    correct += 1
+                else:
+                    incorrect += 1
+            i += 1
+        total_marks = round(correct*2 - incorrect*(2/3), 2)
+        if (correct+incorrect) == 0:
+            accuracy = 0
+        else:
+            accuracy = int(round(correct/(correct+incorrect), 2)*100)
+        attempted = correct + incorrect
+        not_attempted = total_questions - attempted
+
+        print(total_marks, accuracy, attempted, not_attempted, total_questions, correct, incorrect, paper_time_taken, user_id, mock_paper_id, test_response,submission_at)
+        cursor.execute("""insert into testseries_mock_submissions (user_id, mock_paper_id, responses, total_questions, correct, incorrect, attempted, not_attempted, total_marks, accuracy, paper_time_taken, is_live_attempted, submission_at) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",[user_id,mock_paper_id,test_response,total_questions,correct,incorrect,attempted,not_attempted,total_marks,accuracy,paper_time_taken, is_live_attempted, submission_at])
+        mysql.connection.commit()
+        cursor.close()
+        response =app.response_class(response=json.dumps({"message":"Response Submitted"}),status= 200, mimetype='application/json')
+    return response
+
+
+
+# Get Response 
+@app.route('/testseries/getResponses',methods=["GET"])
+def getMockResponseTestSeries():
+    mock_paper_id = request.headers.get("mock_paper_id")
+    user_id = request.headers.get("user_id")
+    questions_data = []
+    print(mock_paper_id,user_id)
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from testseries_mock_paper where id = (%s) """,[mock_paper_id])
+    questions = cursor.fetchone()
+    total_questions = questions["total_questions"]
+
+    cursor.execute(""" select * from testseries_mock_questions where paper_id = (%s) order by id asc limit %s """,[mock_paper_id,total_questions])
+    questions = cursor.fetchall()
+    for result in questions:
+        temp_data = {}
+        temp_data["id"] = result["id"]
+
+        if result["question_english"]:
+            temp_data["question_english"] = result["question_english"]
+        else:
+            temp_data["question_english"] = ""
+
+        if result["options_english"]:
+            temp_data["options_english"] = result["options_english"].split('$')
+        else:
+            temp_data["options_english"] = ["","","",""]
+
+        if result["question_hindi"]:
+            temp_data["question_hindi"] = result["question_hindi"]
+        else:
+            temp_data["question_hindi"] = ""
+
+        if result["options_hindi"]:
+            temp_data["options_hindi"] = result["options_hindi"].split('$')
+        else:
+            temp_data["options_hindi"] = ["","","",""]
+
+        if result["extras_question"]:
+            temp_data["extras_question"] = result["extras_question"].split('$')
+        else:
+            temp_data["extras_question"] = []
+
+        if result["extras_option"]:
+            temp_data["extras_option"] = result["extras_option"].split('$')
+        else:
+            temp_data["extras_option"] = []
+        temp_data["question_type"] = result["question_type"]
+        temp_data["answer"] = result["answer"]
+        questions_data.append(temp_data)
+
+    cursor.execute(""" select * from testseries_mock_submissions s join testseries_mock_paper p on s.mock_paper_id = p.id where s.mock_paper_id = (%s) and s.user_id =(%s) """,[mock_paper_id,user_id])
+    responses = cursor.fetchone()
+
+    temp_response = {}
+    if responses:
+        temp_response["id"] = responses["id"]
+        temp_response["user_id"] = responses["user_id"]
+        temp_response["mock_paper_id"] = responses["mock_paper_id"]
+        temp_response["responses"] = responses["responses"].split(',')
+        temp_response["total_questions"] = responses["total_questions"]
+        temp_response["correct"] = responses["correct"]
+        temp_response["incorrect"] = responses["incorrect"]
+        temp_response["attempted"] = responses["attempted"]
+        temp_response["not_attempted"] = responses["not_attempted"]
+        temp_response["total_marks"] = responses["total_marks"]
+        temp_response["accuracy"] = responses["accuracy"]
+        temp_response["paper_time_taken"] = responses["paper_time_taken"]
+        temp_response["paper_id"] = responses["p.id"]
+        temp_response["mock_paper_name"] = responses["mock_paper_name"]
+        temp_response["mock_description"] = responses["mock_description"]
+
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Responses Available", "questions":questions_data,"user_response":temp_response,"isValid":True}),status= 200, mimetype='application/json')
+    return response
+
+# Get Rank List 
+@app.route('/testseries/getRankMockPaper',methods=["GET"])
+def getRankMockPaperTestSeries():
+    mock_paper_id = request.headers.get("mock_paper_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select us.id as user_id, us.firstname user_firstname, us.lastname as user_lastname,us.email as user_email, ms.total_marks as marks, ms.accuracy as accuracy, ms.paper_time_taken as paper_time from testseries_mock_submissions ms join testseries_users us on ms.user_id = us.id where ms.mock_paper_id = (%s) and ms.is_live_attempted = 1 order by ms.total_marks desc, ms.accuracy desc, ms.paper_time_taken asc""",[mock_paper_id])
+    ranks = cursor.fetchall()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Responses Available", "questions":ranks, "isValid":True}),status= 200, mimetype='application/json')
+    return response
+
+# Get Mock Time
+@app.route('/testseries/getMockPaperTime',methods=["GET"])
+def getMockPaperTimeTestSeries():
+    mock_paper_id = request.headers.get("mock_paper_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select paper_time from testseries_mock_paper where id = (%s) """,[mock_paper_id])
+    paper_time = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Time Available", "paper_time":paper_time["paper_time"], "isValid":True}),status= 200, mimetype='application/json')
+    return response
+
+# Check Test Attempted
+@app.route('/testseries/checkTestAttempted',methods=["GET"])
+def checkTestAttemptedTestSeries():
+    user_id = request.headers.get("user_id")
+    mock_paper_id = request.headers.get("mock_paper_id")
+    print(user_id,mock_paper_id)
+    isValid = True
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select id from testseries_mock_submissions where mock_paper_id = (%s) and user_id = (%s)""", [mock_paper_id,user_id])
+    is_submission = cursor.fetchone()
+    print(is_submission)
+    if is_submission:
+        isValid = False
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Check Mock Submitted", "isValid":isValid}),status= 200, mimetype='application/json')
+    return response   
+
+# Check Paid User or Not
+@app.route('/testseries/checkValidUser',methods=["GET"])
+def checkPaidUserTestSeries():
+    user_id = request.headers.get("user_id")
+    isValid = False
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select id from testseries_order_history where user_id = (%s)""", [user_id])
+    check = cursor.fetchone()
+    if check:
+        isValid = True
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Check Paid User", "isValid":isValid}),status= 200, mimetype='application/json')
+    return response
+
+
+# ---------------------------------------------Admin End----------------------------------------
+
+
+
+# Admin Login
+@app.route('/testseries/adminLogin', methods=["POST"])
+def adminLoginTestSeries():
+    username = request.json["username"]
+    password = request.json["password"]
+    isAdminExist = False
+    cursor = mysql.connection.cursor()
+    cursor.execute(
+        """SELECT * FROM admin_table where username=(%s) AND password=(%s)""", [username, password])
+    admin_data = cursor.fetchone()
+    if admin_data:
+        isAdminExist = True
+    if isAdminExist:
+        response = app.response_class(response=json.dumps({"message": "Login Success", "isValid": True, "admin": admin_data}), status=200, mimetype='application/json')
+        return response
+    else:
+        response = app.response_class(response=json.dumps({"message": "Wrong Credential", "isValid": False}), status=200, mimetype='application/json')
+        return response
+
+#Admin Dashboard
+@app.route('/testseries/adminDashboard',methods=["GET"])
+def adminDashboardTestSeries():
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select count(*) as total from testseries_users""")
+    total = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from testseries_users u join testseries_order_history o on u.id = o.user_id""")
+    paid = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from testseries_users left outer join testseries_order_history on testseries_users.id = testseries_order_history.user_id where testseries_order_history.user_id is null""")
+    unpaid = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from testseries_users where preparing_for = 1 """)
+    cgacf = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from testseries_users where preparing_for = 2 """)
+    cgpsc = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Users data are:", "total_user":total["total"], "paid_user": paid['total'], "unpaid_user": unpaid["total"], "CGACF":cgacf["total"], "CGPSC":cgpsc["total"] }),status= 200, mimetype='application/json')
+    return response
+
+#All Users
+@app.route('/testseries/allUsers',methods=["GET"])
+def getAllUsersTestSeries():
+    page = request.headers.get("page")
+    offset = 20*(int(page)-1)
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select id, firstname, lastname, email, mobile, image_url, created_at, whatsapp, graduation_year, preparing_for from testseries_users order by id desc limit 20 offset %s """,[offset])
+    result = cursor.fetchall()
+    cursor.execute(""" select count(*) as total from testseries_users""")
+    total = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Users data are", "user_data":result, "total": total['total']}),status= 200, mimetype='application/json')
+    return response
+
+
+#Paid Users
+@app.route('/testseries/paidUsers',methods=["GET"])
+def getPaidUsersTestSeries():
+    page = request.headers.get("page")
+    offset = 20*(int(page)-1)
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select u.id, u.firstname, u.lastname, u.email, u.mobile, u.image_url, u.created_at, u.whatsapp, u.graduation_year, u.preparing_for, o.order_id, o.order_at, o.status from testseries_users u join testseries_order_history o on u.id = o.user_id order by u.id desc limit 20 offset %s""", [offset])
+    result = cursor.fetchall()
+    cursor.execute(""" select count(*) as total from testseries_users u join testseries_order_history o on u.id = o.user_id""")
+    total = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Users data are", "user_data":result, "total": total['total']}),status= 200, mimetype='application/json')
+    return response
+
+#Unpaid Users
+@app.route('/testseries/unpaidUsers',methods=["GET"])
+def getUnpaidUsersTestSeries():
+    page = request.headers.get("page")
+    offset = 20*(int(page)-1)
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select testseries_users.id, firstname, lastname, email, mobile, image_url, created_at, whatsapp, graduation_year, preparing_for from testseries_users left outer join testseries_order_history on testseries_users.id = testseries_order_history.user_id where testseries_order_history.user_id is null order by testseries_users.id desc limit 20 offset %s""", [offset])
+    result = cursor.fetchall()
+    cursor.execute(""" select count(*) as total from testseries_users left outer join testseries_order_history on testseries_users.id = testseries_order_history.user_id where testseries_order_history.user_id is null""")
+    total = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Users data are", "user_data":result, "total": total['total']}),status= 200, mimetype='application/json')
+    return response
+
+#Unpaid Users
+@app.route('/testseries/getAllMockAdmin',methods=["GET"])
+def getAllMockAdminTestSeries():
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from testseries_mock_paper""")
+    result = cursor.fetchall()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Mock Papers are", "mock_paper":result}),status= 200, mimetype='application/json')
+    return response
+
+
+#Mock Go Live
+@app.route('/testseries/goMockLive',methods=["POST"])
+def goMockLiveTestSeries():
+    mock_paper_id = request.json["mock_paper_id"]
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" UPDATE testseries_mock_paper SET is_active = 1 where id=(%s)""",[mock_paper_id])
+    mysql.connection.commit()
+    response =app.response_class(response=json.dumps({"message":"Paper Live Successfully"}),status= 200, mimetype='application/json')
+    cursor.close()
+    return response
+
+#Mock Stop 
+@app.route('/testseries/finishPaper',methods=["POST"])
+def finishPaperTestSeries():
+    mock_paper_id = request.json["mock_paper_id"]
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" UPDATE testseries_mock_paper SET is_active = 0 , is_finished = 1 where id=(%s)""",[mock_paper_id])
+    mysql.connection.commit()
+    response =app.response_class(response=json.dumps({"message":"Paper Finished Successfully"}),status= 200, mimetype='application/json')
+    cursor.close()
+    return response
+
+
+#Mock Rank Released and PDF
+@app.route('/testseries/releaseResult',methods=["POST"])
+def releaseResultTestSeries():
+    mock_paper_id = request.json["mock_paper_id"]
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" UPDATE testseries_mock_paper SET is_result_released = 1 where id=(%s)""",[mock_paper_id])
+    mysql.connection.commit()
+    response =app.response_class(response=json.dumps({"message":"Result Released Successfully"}),status= 200, mimetype='application/json')
+    cursor.close()
+    return response
+
+# Check User Payment by Email
+@app.route('/testseries/checkPayment',methods=["GET"])
+def checkPaymentTestSeries():
+    email = request.headers.get("email")
+    user_exist = False
+    is_exist = False
+    payment_exist = []
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select id from testseries_users where email=(%s)""",[email])
+    user_id = cursor.fetchone()
+    if user_id:
+        user_exist = True
+    if user_exist:
+        cursor.execute("""select oh.*, u.firstname,u.lastname,u.email from testseries_users u join testseries_order_history oh on u.id=oh.user_id where user_id=(%s)""",[user_id["id"]])
+        temp = cursor.fetchone()
+        mysql.connection.commit()
+        cursor.close()
+        if temp:
+            response =app.response_class(response=json.dumps({"message":"User Payment Details", "isExist":True, "payment_data":temp}),status= 200, mimetype='application/json')
+        else :
+             response =app.response_class(response=json.dumps({"message":"User Payment Details", "isExist":False}),status= 200, mimetype='application/json')
+    else:
+         response =app.response_class(response=json.dumps({"message":"User Not Exist", "isExist":False}),status= 200, mimetype='application/json')    
+   
+    return response
+
+# Settle User Payment
+@app.route('/testseries/addUserToPaymentList',methods=["POST"])
+def addUserToPaymentListTestSeries():
+    email = request.json["email"]
+    order_id = request.json["order_id"]
+    payment_id = request.json["payment_id"]
+    order_at = request.json["payment_date"]
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select id from testseries_users where email=(%s)""",[email])
+    user_id = cursor.fetchone()
+    if user_id:
+        cursor.execute("""insert into testseries_order_history(payment_id, order_id, user_id, price, order_at, status, test_name) values(%s,%s,%s,%s,%s,%s,%s)""",[payment_id,order_id,user_id["id"],240,order_at,"success","Pdhantu Test Series"])
+        response =app.response_class(response=json.dumps({"message":"Payment Details Updated Successfully"}),status= 200, mimetype='application/json')
+    else:
+        response =app.response_class(response=json.dumps({"message":"User not exist"}),status= 200, mimetype='application/json')
+    mysql.connection.commit()
+    cursor.close()
+    return response
+
+
+# Get Mock Status 
+@app.route('/testseries/getLiveMockStatus',methods=["GET"])
+def getLiveMockStatusTestSeries():
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select id,mock_paper_name,is_active from testseries_mock_paper where is_active = 1 or is_finished = 1""")
+    mock_paper_details = cursor.fetchall()
+    for mock in mock_paper_details:
+        cursor.execute("""select count(*) as user_count from testseries_mock_submissions where mock_paper_id = (%s)""",[mock["id"]])
+        user_details = cursor.fetchone()
+        mock["user_count"] = user_details["user_count"]
+    response =app.response_class(response=json.dumps({"message":"All Mock Status", "mock_data":mock_paper_details}),status= 200, mimetype='application/json')
+    mysql.connection.commit()
+    cursor.close()
+    return response
+
+
+@app.route('/testseries/dumpQuestionsExcelfile', methods=["POST"])
+def dumpQuestionsTestSeries():
+    excel_file = request.files['excel_file']
+    prefix_file = str(time.time()).replace(".","")[:11]
+    new_name_file = prefix_file + "-" + excel_file.filename
+    excel_file.save(new_name_file)
+    book = xlrd.open_workbook(new_name_file)
+    sheet = book.sheet_by_index(0)
+    cursor = mysql.connection.cursor()
+    query = """INSERT INTO testseries_mock_questions(paper_id, question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
+    for r in range(1, sheet.nrows):
+        paper_id = sheet.cell(r,0).value
+        question_english = sheet.cell(r,1).value
+        options_english = sheet.cell(r,2).value
+        answer =  sheet.cell(r,3).value
+        question_hindi = sheet.cell(r,4).value
+        options_hindi = sheet.cell(r,5).value
+        extras_question = sheet.cell(r,6).value
+        extras_option = sheet.cell(r,7).value
+        question_type = sheet.cell(r,8).value
+
+        values = (paper_id, question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type)     
+        print(values)
+        cursor.execute(query, values)
+
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Sucessfully Uploaded"}),status= 200, mimetype='application/json')
+    return response
+
+
+# Get Mock Questions
+@app.route('/testseries/getQuestionsByPaperId',methods=["GET"])
+def getMockQuestionsByPaperIdTestSeries():
+    questions_data = []
+    mock_paper_id = request.headers.get("mock_paper_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select * from testseries_mock_questions where paper_id = (%s) order by id asc""",[mock_paper_id])
+    results = cursor.fetchall()
+    for result in results:
+        temp_data = {}
+        temp_data["id"] = result["id"]
+
+        if result["question_english"]:
+            temp_data["question_english"] = result["question_english"].split('$')
+        else:
+            temp_data["question_english"] = ""
+
+        if result["options_english"]:
+            temp_data["options_english"] = result["options_english"].split('$')
+        else:
+            temp_data["options_english"] = ["","","",""]
+
+        if result["question_hindi"]:
+            temp_data["question_hindi"] = result["question_hindi"].split('$')
+        else:
+            temp_data["question_hindi"] = ""
+
+        if result["options_hindi"]:
+            temp_data["options_hindi"] = result["options_hindi"].split('$')
+        else:
+            temp_data["options_hindi"] = ["","","",""]
+        
+        if result["extras_question"]:
+            temp_data["extras_question"] = result["extras_question"].split('$')
+        else:
+            temp_data["extras_question"] = []
+
+        if result["extras_option"]:
+            temp_data["extras_option"] = result["extras_option"].split('$')
+        else:
+            temp_data["extras_option"] = []
+        temp_data["question_type"] = result["question_type"]
+        temp_data["answer"] = result["answer"]
+        questions_data.append(temp_data)
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Questions data are", "questions":questions_data}),status= 200, mimetype='application/json')
+    return response
+
+# Get Mock Questions
+@app.route('/testseries/getQuestionsById', methods=["GET"])
+def getMockQuestionsByIdTestSeries():
+    questions_id = request.headers.get("questions_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT * from testseries_mock_questions where id = (%s)""", [questions_id])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Mock Questions details","question_list":result}),status= 200, mimetype='application/json')
+    return response
+
+# Add Mock Question
+@app.route('/testseries/addQuestionToPaper', methods=["POST"])
+def addQuestionToPaperTestSeries():
+    mock_paper_id = request.json["mock_paper_id"]
+    question_english = request.json["question_english"]
+    options_english = request.json["options_english"]
+    question_hindi = request.json["question_hindi"]
+    options_hindi = request.json["options_hindi"]
+    answer =  request.json["answer"]
+    extras_question = request.json["extras_question"]
+    extras_option = request.json["extras_option"]
+    question_type = request.json["question_type"]
+
+    cursor = mysql.connection.cursor()
+    cursor.execute("""INSERT INTO testseries_mock_questions(paper_id, question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)""", [mock_paper_id,question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Successfully Added"}),status= 200, mimetype='application/json')
+    return response
+
+# Edit Mock Questions
+@app.route('/testseries/editQuestionsById', methods=["PUT"])
+def editQuestionsByIdTestSeries():
+    questions_id = request.json["questions_id"]
+    question_english = request.json["question_english"]
+    options_english = request.json["options_english"]
+    question_hindi = request.json["question_hindi"]
+    options_hindi = request.json["options_hindi"]
+    answer =  request.json["answer"]
+    extras_question = request.json["extras_question"]
+    extras_option = request.json["extras_option"]
+    question_type = request.json["question_type"]
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" update testseries_mock_questions set question_english=(%s), options_english=(%s), question_hindi=(%s), options_hindi=(%s),answer=(%s),extras_question=(%s),extras_option=(%s), question_type=(%s) where id=(%s) """, [question_english, options_english, question_hindi, options_hindi, answer, extras_question, extras_option, question_type, questions_id])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"SuccessfullgetMockQuestionsByIdy Updated"}),status= 200, mimetype='application/json')
+    return response
+
+# Delete Question
+@app.route('/testseries/deleteQuestionById',methods=["DELETE"])
+def deleteQuestionByIdTestSeries():
+    question_id = request.headers.get("question_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" delete from testseries_mock_questions where id =(%s)""",[question_id])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Successfully Deleted", "isValid":True}),status= 200, mimetype='application/json')
+    return response
+
+# Delete Question
+@app.route('/testseries/deleteQuestionsByPaperId',methods=["DELETE"])
+def deleteQuestionByPaperIdTestSeries():
+    mock_paper_id = request.headers.get("mock_paper_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" delete from testseries_mock_questions where paper_id =(%s)""",[mock_paper_id])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Successfully Deleted", "isValid":True}),status= 200, mimetype='application/json')
+    return response
+
+# Get Users List 
+@app.route('/testseries/allUsersList',methods=["GET"])
+def allUsersListTestSeries():
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select id, firstname, lastname, email, mobile from testseries_users""")
+    allUsers = cursor.fetchall()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Responses Available", "allUsers":allUsers, "isValid":True}),status= 200, mimetype='application/json')
+    return response
+
+# Upload Question Paper Pdf
+@app.route('/testseries/uploadPaperPdf', methods=["POST"])
+def uploadQuestionPaperPdf():
+    mock_paper_id = request.headers.get("mock_paper_id")
+    file = request.files["question_paper_pdf"]
+    seconds = str(time.time()).replace(".","")
+    newFile = "material_pdf/"+seconds + "-" + file.filename
+    uploadFileToS3(newFile, file)
+    pdf_file = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
+    cursor = mysql.connection.cursor()
+    cursor.execute("""UPDATE testseries_mock_paper SET paper_pdf =(%s) where id=(%s) """,[pdf_file,mock_paper_id])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Uploaded Successfully"}),status= 200, mimetype='application/json')
+    return response
+
+
 if __name__ == "__main__":
     app.run(debug="True", host="0.0.0.0", port=5000)
     # app.run(debug = "True")
