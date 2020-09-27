@@ -3057,10 +3057,12 @@ def addUserToPaymentListTestSeries():
     payment_id = request.json["payment_id"]
     order_at = request.json["payment_date"]
     cursor = mysql.connection.cursor()
-    cursor.execute("""select id from testseries_users where email=(%s)""",[email])
-    user_id = cursor.fetchone()
-    if user_id:
-        cursor.execute("""insert into testseries_order_history(payment_id, order_id, user_id, price, order_at, status, test_name) values(%s,%s,%s,%s,%s,%s,%s)""",[payment_id,order_id,user_id["id"],240,order_at,"success","Pdhantu Test Series"])
+    cursor.execute("""select * from testseries_users where email=(%s)""",[email])
+    result = cursor.fetchone()
+    cursor.execute("""select * from testseries_mock_package where id=(%s)""",[result["preparing_for"]])
+    result2 = cursor.fetchone()
+    if result:
+        cursor.execute("""insert into testseries_order_history(payment_id, order_id, user_id, price, order_at, status, package_id) values(%s,%s,%s,%s,%s,%s,%s)""",[payment_id,order_id,result["id"],result2["package_price"],order_at,"success",result["preparing_for"]])
         response =app.response_class(response=json.dumps({"message":"Payment Details Updated Successfully"}),status= 200, mimetype='application/json')
     else:
         response =app.response_class(response=json.dumps({"message":"User not exist"}),status= 200, mimetype='application/json')
