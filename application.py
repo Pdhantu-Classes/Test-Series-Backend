@@ -38,8 +38,8 @@ RAZORPAY_SECRET = 'YqklWxoyHIc1s9boGOL94Z4B'
 MYSQL_HOST = 'database-pdhantu.cqa6f6gkxqbj.us-east-2.rds.amazonaws.com'
 MYSQL_USER = 'root'
 MYSQL_PASSWORD = 'root_123'
-# MYSQL_DB = 'pdhantu-dev'
-MYSQL_DB = 'pdhantu-prod'
+MYSQL_DB = 'pdhantu-dev'
+# MYSQL_DB = 'pdhantu-prod'
 MYSQL_CURSORCLASS = 'DictCursor'
 
 
@@ -1730,8 +1730,8 @@ def uploadTopicPdf():
 # Delete Topic
 @app.route('/course/deleteVideoLacture', methods=["POST"])
 def deleteVideoLacture():
-    topic_id = request.headers.get("topic_id")
-    course_id = request.headers.get("course_id")
+    topic_id = request.json["topic_id"]
+    course_id = request.json["course_id"]
     cursor = mysql.connection.cursor()
     cursor.execute("""select * from course_video_lacture where id=(%s)""",[topic_id])
     result = cursor.fetchone()
