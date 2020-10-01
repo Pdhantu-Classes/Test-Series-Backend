@@ -1727,6 +1727,87 @@ def uploadTopicPdf():
     response =app.response_class(response=json.dumps({"message":"Uploaded Successfully"}),status= 200, mimetype='application/json')
     return response
 
+# Delete Topic
+@app.route('/course/deleteVideoLacture', methods=["POST"])
+def deleteVideoLacture():
+    topic_id = request.headers.get("topic_id")
+    course_id = request.headers.get("course_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select * from course_video_lacture where id=(%s)""",[topic_id])
+    result = cursor.fetchone()
+    if int(course_id) == 1 or int(course_id) == 3:
+        cursor.execute("""DELETE from course_video_lacture where subject_id=(%s) and upload_date=(%s)""", [result["subject_id"], result["upload_date"]])
+    else:
+        cursor.execute("""DELETE from course_video_lacture where id=(%s) """,[topic_id])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Deleted Successfully"}),status= 200, mimetype='application/json')
+    return response
+
+# Get User by Email
+@app.route('/course/getUserbyEmail', methods=["GET"])
+def getUserbyEmail():
+    email = request.headers.get("email")
+    cursor = mysql.connection.cursor()
+    cursor.execute("""select * from course_users where email=(%s)""",[email])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    if result:
+        response =app.response_class(response=json.dumps({"message":"Users exist", "isValid": True, "usersDetails": result }),status= 200, mimetype='application/json')
+    else:
+        response =app.response_class(response=json.dumps({"message":"Users doesnot exist", "isValid": False }),status= 200, mimetype='application/json')
+    return response
+
+# Get User by Email
+@app.route('/course/editUserDetails', methods=["PUT"])
+def editUserDetails():
+    user_id = request.json["user_id"]
+    email = request.json["email"]
+    batch = request.json["batch"]
+    course = request.json["course"]
+    price = 0
+    if(int(course) == 1):
+        price = 2940
+    elif(int(course) == 2):
+        price = 6940
+    elif(int(course) == 3):
+        price = 4940
+    elif(int(course) == 4):
+        price = 4940
+    cursor = mysql.connection.cursor()
+    cursor.execute("""UPDATE course_users SET email=(%s), course=(%s), batch=(%s) where id =(%s)""",[email,course,batch,user_id])
+    cursor.execute("""UPDATE course_order_history SET price=(%s) where user_id =(%s)""",[price,user_id])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Updated Successfully" }),status= 200, mimetype='application/json')
+    return response
+
+
+@app.route('/course/uploadClassSchedule', methods=["POST"])
+def uploadClassSchedule():
+    file = request.files["class_schedule"]
+    seconds = str(time.time()).replace(".","")
+    newFile = "miscellaneous/"+seconds + "-" + file.filename
+    uploadFileToS3(newFile, file)
+    pdf_file = 'https://pdhantu-classes.s3.us-east-2.amazonaws.com/'+newFile
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" INSERT INTO course_class_schedule(pdf_link) VALUES(%s)""",[pdf_file])
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Uploaded Successfully"}),status= 200, mimetype='application/json')
+    return response
+
+@app.route('/course/getClassSchedule', methods=["GET"])
+def getClassSchedule():
+    cursor = mysql.connection.cursor()
+    cursor.execute(""" select id,pdf_link from course_class_schedule order by id desc limit 1 """)
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    response =app.response_class(response=json.dumps({"message":"Pdf Available", "pdf_link":result["pdf_link"]}),status= 200, mimetype='application/json')
+    return response
+
 #Paid Users
 @app.route('/course/paidUserLists',methods=["GET"])
 def getPaidUsersLists():
