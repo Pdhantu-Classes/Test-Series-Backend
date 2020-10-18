@@ -1210,7 +1210,8 @@ def signUpCourse():
     email = request.json['email']
     password = request.json['password']
     mobile = request.json['mobile']
-    batch = 2
+    #Change Batch Here
+    batch = 3
     created_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
     flag = False
     password_salt = generate_salt()
@@ -1490,10 +1491,22 @@ def adminDashboardCourse():
     mains_hindi_batch2 = cursor.fetchone()
     cursor.execute(""" select count(*) as total from course_users where course = 4 and batch = 2""")
     mains_english_batch2 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users u join course_order_history o on u.id = o.user_id where u.batch = 3""")
+    paid_batch3 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 1 and batch = 3""")
+    prelims_batch3 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 2 and batch = 3""")
+    mains_batch3 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 3 and batch = 3""")
+    mains_hindi_batch3 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 4 and batch = 3""")
+    mains_english_batch3 = cursor.fetchone()
     cursor.execute(""" select count(*) as total from course_users where batch = 1""")
     batch_1 = cursor.fetchone()
     cursor.execute(""" select count(*) as total from course_users where batch = 2""")
     batch_2 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where batch = 3""")
+    batch_3 = cursor.fetchone()
     mysql.connection.commit()
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Users data are:", 
@@ -1508,8 +1521,14 @@ def adminDashboardCourse():
         "mains_batch2":mains_batch2["total"], 
         "mains_hindi_batch2":mains_hindi_batch2["total"], 
         "mains_english_batch2":mains_english_batch2["total"], 
+        "paid_user_batch3": paid_batch3['total'], 
+        "prelims_batch3":prelims_batch3["total"], 
+        "mains_batch3":mains_batch3["total"], 
+        "mains_hindi_batch3":mains_hindi_batch3["total"], 
+        "mains_english_batch3":mains_english_batch3["total"], 
         "batch_1": batch_1["total"], 
-        "batch_2": batch_2["total"]
+        "batch_2": batch_2["total"],
+        "batch_3": batch_3["total"]
         }),status= 200, mimetype='application/json')
     return response
 
@@ -3271,6 +3290,21 @@ def getMockQuestionsByIdTestSeries():
     mysql.connection.commit()
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Mock Questions details","question_list":result}),status= 200, mimetype='application/json')
+    return response
+
+# Get Mock Questions
+@app.route('/testseries/getDemoTestStatus', methods=["GET"])
+def getDemoTestStatus():
+    user_id = request.headers.get("user_id")
+    cursor = mysql.connection.cursor()
+    cursor.execute("""SELECT * from testseries_mock_submissions where user_id = (%s) and mock_paper_id = (%s)""", [user_id, 49])
+    result = cursor.fetchone()
+    mysql.connection.commit()
+    cursor.close()
+    if result:
+        response =app.response_class(response=json.dumps({"message":"Demo Test Details","isValid": False}),status= 200, mimetype='application/json')
+    else:
+        response =app.response_class(response=json.dumps({"message":"Demo Test Details","isValid": True}),status= 200, mimetype='application/json')        
     return response
 
 # Add Mock Question
