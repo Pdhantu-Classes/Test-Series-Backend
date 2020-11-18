@@ -1211,7 +1211,7 @@ def signUpCourse():
     password = request.json['password']
     mobile = request.json['mobile']
     #Change Batch Here
-    batch = 3
+    batch = 4
     created_at = datetime.fromtimestamp(calendar.timegm(time.gmtime()))
     flag = False
     password_salt = generate_salt()
@@ -1501,12 +1501,24 @@ def adminDashboardCourse():
     mains_hindi_batch3 = cursor.fetchone()
     cursor.execute(""" select count(*) as total from course_users where course = 4 and batch = 3""")
     mains_english_batch3 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users u join course_order_history o on u.id = o.user_id where u.batch = 4""")
+    paid_batch4 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 1 and batch = 4""")
+    prelims_batch4 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 2 and batch = 4""")
+    mains_batch4 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 3 and batch = 4""")
+    mains_hindi_batch4 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where course = 4 and batch = 4""")
+    mains_english_batch4 = cursor.fetchone()
     cursor.execute(""" select count(*) as total from course_users where batch = 1""")
     batch_1 = cursor.fetchone()
     cursor.execute(""" select count(*) as total from course_users where batch = 2""")
     batch_2 = cursor.fetchone()
     cursor.execute(""" select count(*) as total from course_users where batch = 3""")
     batch_3 = cursor.fetchone()
+    cursor.execute(""" select count(*) as total from course_users where batch = 4""")
+    batch_4 = cursor.fetchone()
     mysql.connection.commit()
     cursor.close()
     response =app.response_class(response=json.dumps({"message":"Users data are:", 
@@ -1525,10 +1537,16 @@ def adminDashboardCourse():
         "prelims_batch3":prelims_batch3["total"], 
         "mains_batch3":mains_batch3["total"], 
         "mains_hindi_batch3":mains_hindi_batch3["total"], 
-        "mains_english_batch3":mains_english_batch3["total"], 
+        "mains_english_batch3":mains_english_batch3["total"],
+        "paid_user_batch4": paid_batch4['total'], 
+        "prelims_batch4":prelims_batch4["total"], 
+        "mains_batch4":mains_batch4["total"], 
+        "mains_hindi_batch4":mains_hindi_batch4["total"],
+        "mains_english_batch4":mains_english_batch4["total"], 
         "batch_1": batch_1["total"], 
         "batch_2": batch_2["total"],
-        "batch_3": batch_3["total"]
+        "batch_3": batch_3["total"],
+        "batch_4": batch_4["total"]
         }),status= 200, mimetype='application/json')
     return response
 
