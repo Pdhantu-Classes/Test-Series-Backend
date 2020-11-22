@@ -2784,7 +2784,7 @@ def getMockQuestionTestSeries(id):
         if result["options_english"]:
             temp_data["options_english"] = result["options_english"].split('$')
         else:
-            temp_data["options_english"] = ["","","","",""]
+            temp_data["options_english"] = ["","","",""]
 
         if result["question_hindi"]:
             temp_data["question_hindi"] = result["question_hindi"].split('$')
@@ -2794,7 +2794,7 @@ def getMockQuestionTestSeries(id):
         if result["options_hindi"]:
             temp_data["options_hindi"] = result["options_hindi"].split('$')
         else:
-            temp_data["options_hindi"] = ["","","","",""]
+            temp_data["options_hindi"] = ["","","",""]
         
         if result["extras_question"]:
             temp_data["extras_question"] = result["extras_question"].split('$')
